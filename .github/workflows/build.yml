@@ -1,6 +1,16 @@
 name: Build
 on:
   workflow_dispatch:
+    inputs:
+      upload-artifact:
+        type: boolean
+        default: true
+      tag-name:
+        type: string
+        default: "draft"
+      channel:
+        type: string
+        default: "dev"
   workflow_call:
     inputs:
       upload-artifact:
@@ -15,11 +25,11 @@ on:
 
 env:
   IS_GITHUB_ACTIONS: 1
-  CHANNEL: "${{ inputs.channel }}"
+  CHANNEL: "${{ inputs.channel || 'dev' }}"
   FLUTTER_VERSION: '3.38.5'
   NDK_VERSION: r28c
-  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
-  TAG_NAME: "${{ inputs.tag-name }}"
+  UPLOAD_ARTIFACT: "${{ inputs.upload-artifact || 'true' }}"
+  TAG_NAME: "${{ inputs.tag-name || 'draft' }}"
   TARGET_NAME_gz: "Hiddify-Linux-x64-AppImage.tar"
   TARGET_NAME_AppImage: "Hiddify-Linux-x64-AppImage"
   TARGET_NAME_deb: "Hiddify-Debian-x64"
@@ -301,8 +311,7 @@ jobs:
           done
 
       - name: Upload Artifact
-        if: env.UPLOAD_ARTIFACT == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: ${{matrix.platform}}
           path: ./out
@@ -315,7 +324,6 @@ jobs:
           rm ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision ||echo ok
   update-draft:
     permissions: write-all
-    if: ${{ inputs.upload-artifact }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -326,7 +334,7 @@ jobs:
           # this fetches all history so that we can read each commit
           fetch-depth: 0
       - name: Download Artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           pattern: "*"
