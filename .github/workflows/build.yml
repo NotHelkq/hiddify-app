@@ -258,7 +258,8 @@ jobs:
         run: |
           mkdir out
           ls -R ./build/app/outputs
-          cp ./build/app/outputs/flutter-apk/*arm64-v8a*.apk out/${TARGET_NAME_apk}-arm64.apk 2>/dev/null || cp ./build/app/outputs/flutter-apk/*.apk out/${TARGET_NAME_apk}-arm64.apk 2>/dev/null || echo "no apk found"
+          find ./build/app/outputs -type f -name "*.apk" -exec cp {} out/${TARGET_NAME_apk}-arm64.apk \; || echo "no apk found"
+          ls -la out
 
       - name: Copy to out Android AAB
         if: matrix.platform == 'android-aab'
@@ -338,6 +339,7 @@ jobs:
 
       - name: Delete Current Release Assets
         uses: 8Mi-Tech/delete-release-assets-action@main
+        continue-on-error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: 'draft'
