@@ -83,5 +83,42 @@ class PredefinedRulesModal extends HookConsumerWidget {
         ruleSets: ["geosite-private", "geoip-private"],
       ),
     ),
+    (
+      "Direct connection for Avito domains",
+      Rule.new(
+        enabled: true,
+        name: "Direct: Avito",
+        outbound: Outbound.direct,
+        domains: ["avito.st"],
+        domainSuffixes: ["avito.st"],
+      ),
+    ),
+    (
+      "Direct connection for Russian sites (geosite:category-ru)",
+      Rule.new(
+        enabled: true,
+        name: "Direct: Category RU",
+        outbound: Outbound.direct,
+        ruleSets: ["geosite:category-ru"],
+      ),
+    ),
+    (
+      "Direct connection for .ru and .рф domains",
+      Rule.new(
+        enabled: true,
+        name: "Direct: RU & Cyrillic Domains",
+        outbound: Outbound.direct,
+        domainRegexes: [r".*\.ru$", r".*\.xn--p1ai$"],
+      ),
+    ),
+    (
+      "Direct connection for Spotify (geosite:spotify)",
+      Rule.new(
+        enabled: true,
+        name: "Direct: Spotify",
+        outbound: Outbound.direct,
+        ruleSets: ["geosite:spotify"],
+      ),
+    ),
   ];
 }

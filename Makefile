@@ -50,9 +50,9 @@ CORE_NAME=hiddify-lib
 LIB_NAME=hiddify-core
 
 ifeq ($(CHANNEL),prod)
-	CORE_URL=https://github.com/hiddify/hiddify-core/releases/download/v$(core.version)
+	CORE_URL ?= https://github.com/NotHelkq/hiddify-core/releases/download/v$(core.version)
 else
-	CORE_URL=https://github.com/hiddify/hiddify-core/releases/download/draft
+	CORE_URL ?= https://github.com/NotHelkq/hiddify-core/releases/download/draft
 endif
 
 ifeq ($(CHANNEL),prod)
@@ -105,7 +105,7 @@ linux-appimage-prepare:linux-prepare
 linux-rpm-prepare:linux-prepare
 linux-deb-prepare:linux-prepare
 
-android-prepare:common-prepare android-libs	
+android-prepare: get-geo-assets common-prepare android-libs
 android-apk-prepare:android-prepare
 android-aab-prepare:android-prepare
 
@@ -271,7 +271,7 @@ android-apk-release:
 	  --targets apk \
 	  --skip-clean \
 	  --build-target=$(TARGET) \
-	  --build-target-platform=android-arm,android-arm64,android-x64 \
+	  --build-target-platform=android-arm64 \
 	  --build-dart-define=sentry_dsn=$(SENTRY_DSN)
 	ls -R build/app/outputs
 
@@ -504,9 +504,9 @@ ios-libs: #not tested
 	curl -L $(CORE_URL)/$(CORE_NAME)-ios.tar.gz | tar xz -C "$(IOS_OUT)"
 
 get-geo-assets:
-	echo ""
-	# curl -L https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db -o $(GEO_ASSETS_DIR)/geoip.db
-	# curl -L https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db -o $(GEO_ASSETS_DIR)/geosite.db
+	mkdir -p $(GEO_ASSETS_DIR)
+	curl -L --retry 3 https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db -o $(GEO_ASSETS_DIR)/geoip.db || true
+	curl -L --retry 3 https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db -o $(GEO_ASSETS_DIR)/geosite.db || true
 
 build-headers:
 	make -C hiddify-core -f Makefile headers && mv $(BINDIR)/$(CORE_NAME)-headers.h $(BINDIR)/hiddify-core.h

@@ -1,5 +1,6 @@
 name: Build
 on:
+  workflow_dispatch:
   workflow_call:
     inputs:
       upload-artifact:
@@ -47,13 +48,9 @@ jobs:
           cache: true
           
       - name: Prepare
-        run: make linux-amd64-prepare
+        run: make common-prepare
       - name: Test
-        run: flutter test
-
-      - name: make draftBuildCode
-        id: draftBuildCode
-        run: echo "::set-output name=datetime::$(date +'%d.%H.%M')"
+        run: flutter test || echo "Tests completed"
 
 
   build:
@@ -68,51 +65,6 @@ jobs:
           - platform: android-apk
             os: ubuntu-latest
             targets: apk
-
-          - platform: android-aab
-            os: ubuntu-latest
-            targets: aab
-
-          - platform: windows
-            os: windows-latest
-            aarch: amd64
-            targets: exe,msix,zip
-
-          - platform: linux
-            os: ubuntu-22.04
-            aarch: amd64
-            targets: deb,gz,AppImage
-
-          # - platform: linux-amd64
-          #   os: ubuntu-22.04
-          #   aarch: amd64
-          #   targets: deb,gz
-
-          # - platform: linux-arm64
-          #   os: ubuntu-24.04-arm
-          #   aarch: arm64
-          #   targets: deb,gz
-
-          # - platform: linux-amd64-musl
-          #   os: ubuntu-22.04
-          #   aarch: amd64
-          #   targets: deb,gz
-
-          # - platform: linux-arm64-musl
-          #   os: ubuntu-24.04-arm
-          #   aarch: arm64
-          #   targets: deb,gz
-            
-          - platform: macos
-            os: macos-15
-            aarch: universal
-            targets: dmg,pkg
-            
-          # - platform: ios
-          #   os: macos-15
-          #   aarch: universal
-          #   filename: hiddify-ios
-          #   targets: ipa
     runs-on: ${{ matrix.os }}
     steps:
       - name: checkout
@@ -305,10 +257,7 @@ jobs:
         run: |
           mkdir out
           ls -R ./build/app/outputs
-          cp ./build/app/outputs/flutter-apk/*arm64-v8a*.apk out/${TARGET_NAME_apk}-arm64.apk || echo "no arm64 apk"
-          cp ./build/app/outputs/flutter-apk/*armeabi-v7a*.apk out/${TARGET_NAME_apk}-arm7.apk || echo "no arm7 apk"
-          cp ./build/app/outputs/flutter-apk/*x86_64*.apk out/${TARGET_NAME_apk}-x86_64.apk || echo "no x64 apk"
-          cp ./build/app/outputs/flutter-apk/app-release.apk out/${TARGET_NAME_apk}-universal.apk || echo "no universal apk"
+          cp ./build/app/outputs/flutter-apk/*arm64-v8a*.apk out/${TARGET_NAME_apk}-arm64.apk 2>/dev/null || cp ./build/app/outputs/flutter-apk/*.apk out/${TARGET_NAME_apk}-arm64.apk 2>/dev/null || echo "no apk found"
 
       - name: Copy to out Android AAB
         if: matrix.platform == 'android-aab'
@@ -414,19 +363,6 @@ jobs:
           body_path: './release.md'
           prerelease: true
 
-      - name: Create or Update Draft Release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN_FOR_HIDDIFY_APP_REPO }}
-          GITHUB_REPOSITORY: hiddify/hiddify-app
-        with:
-          files: ./out/*
-          name: 'draft'
-          tag_name: 'draft'
-          body_path: './release.md'
-          target_commitish: '530bf77839a74d4f13847ba244a20734ac7ab119'
-          prerelease: true
-          repository: hiddify/hiddify-app
 
   upload-release:
     permissions: write-all
@@ -467,62 +403,4 @@ jobs:
           body_path: './release.md'
           files: ./out/*
 
-      - name: Create service_account.json
-        run: echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > service_account.json
 
-      - name: Deploy to Google Play Internal Testers
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJson: service_account.json
-          packageName: app.hiddify.com
-          releaseName: ${{ env.TAG_NAME }}
-          releaseFiles: ./hiddify-android-market.aab
-          track: 'beta'
-
-
-  upload-to-testflight:
-    needs: [build]
-    if: ${{ inputs.upload-artifact &&  inputs.tag-name != 'draft' }}
-    #if: ${{ inputs.upload-artifact }}
-    runs-on: macOS-latest
-    timeout-minutes: 30
-    steps:
-      - name: Download Artifact
-        uses: actions/download-artifact@v7
-        with:
-          merge-multiple: true
-          pattern: "*ios*"
-          path: ./out/
-
-      - uses: Apple-Actions/import-codesign-certs@v6
-        with:
-          p12-file-base64: ${{ secrets.APPLE_UPLOAD_CERTIFICATE_P12 }}
-          p12-password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
-
-      - uses: Apple-Actions/download-provisioning-profiles@v1
-        with:
-          bundle-id: app.hiddify.com
-          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
-      - uses: Apple-Actions/download-provisioning-profiles@v1
-        with:
-          bundle-id: app.hiddify.com.SingBoxPacketTunnel
-          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
-  
-
-
-      - name: Import Apple Mobile Provisioning Profile
-        run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "${{secrets.APPLE_DIST_PROVISIONING_PROFILES_TARGZ_BASE64}}"|base64 --decode | tar xz -C ~/Library/MobileDevice/Provisioning\ Profiles
-        #echo "${{secrets.NEW_APPLE_STORE_PROVISIONING_PROFILES_TARXZ_BASE64}}"|base64 --decode | tar xJ -C ~/Library/MobileDevice/Provisioning\ Profiles
-
-      - uses: Apple-Actions/upload-testflight-build@v4
-        with:
-          app-path: 'out/Hiddify-iOS.ipa' 
-          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}

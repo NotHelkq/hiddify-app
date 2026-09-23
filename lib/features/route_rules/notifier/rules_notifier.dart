@@ -23,10 +23,55 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     final directories = ref.watch(appDirectoriesProvider).requireValue;
     file = File('${directories.baseDir.path}/route_rule.proto');
     if (file.existsSync()) {
-      return RouteRule.fromBuffer(file.readAsBytesSync()).rules;
-    } else {
-      return <Rule>[];
+      final loaded = RouteRule.fromBuffer(file.readAsBytesSync()).rules;
+      if (loaded.isNotEmpty) {
+        return loaded;
+      }
     }
+    final defaults = _defaultRules();
+    try {
+      if (!file.parent.existsSync()) {
+        file.parent.createSync(recursive: true);
+      }
+      file.writeAsBytesSync(RouteRule(rules: defaults).writeToBuffer());
+    } catch (e, st) {
+      loggy.warning("error persisting default route rules", e, st);
+    }
+    return defaults;
+  }
+
+  List<Rule> _defaultRules() {
+    return [
+      Rule(
+        listOrder: 0,
+        enabled: true,
+        name: 'Direct: Avito',
+        outbound: Outbound.direct,
+        domains: ['avito.st'],
+        domainSuffixes: ['avito.st'],
+      ),
+      Rule(
+        listOrder: 1,
+        enabled: true,
+        name: 'Direct: Category RU',
+        outbound: Outbound.direct,
+        ruleSets: ['geosite:category-ru'],
+      ),
+      Rule(
+        listOrder: 2,
+        enabled: true,
+        name: 'Direct: RU & Cyrillic Domains',
+        outbound: Outbound.direct,
+        domainRegexes: [r'.*\.ru$', r'.*\.xn--p1ai$'],
+      ),
+      Rule(
+        listOrder: 3,
+        enabled: true,
+        name: 'Direct: Spotify',
+        outbound: Outbound.direct,
+        ruleSets: ['geosite:spotify'],
+      ),
+    ];
   }
 
   Future<void> addRule(Rule rule) async {
@@ -187,10 +232,9 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
   }
 
   Future<void> resetRules() async {
-    if (await file.exists()) {
-      await file.delete(recursive: true);
-      state = <Rule>[];
-    }
+    final defaults = _defaultRules();
+    state = defaults;
+    await _updateFile();
   }
 
   Future<void> _updateFile() async {

@@ -7,6 +7,7 @@ on:
       - 'test.configs/**'
       - '.vscode/'
       - 'appcast.xml'
+  workflow_dispatch:
   push:
     branches:
        - main
