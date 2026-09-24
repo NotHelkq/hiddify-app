@@ -22,6 +22,8 @@ class CoreInterface {
     return false;
   }
 
+  Future<void> stopMethodChannel() async {}
+
   Future<bool> isBgClientAvailable() async {
     return true;
   }
