@@ -7,6 +7,7 @@ import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
 import 'package:hiddify/features/proxy/active/ip_widget.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
+import 'package:hiddify/singbox/model/singbox_proxy_type.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -113,7 +114,7 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
                       const Spacer(),
                       Text(
                         // getRealOutboundTag(activeProxy),
-                        _formatProxyType(activeProxy.type, activeProxy.tagDisplay),
+                        formatProxyType(activeProxy.type, activeProxy.tagDisplay),
                         style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -140,15 +141,6 @@ String getRealOutboundTag(OutboundInfo group) {
     tag = "$tag → ${group.groupSelectedTagDisplay}";
   }
   return tag;
-}
-
-String _formatProxyType(String type, String tag) {
-  final lowerType = type.toLowerCase();
-  final lowerTag = tag.toLowerCase();
-  if (lowerType == 'socks' && (lowerTag.contains('olcrtc') || lowerTag.contains('olconnect'))) {
-    return 'olcRTC';
-  }
-  return type;
 }
 
 Color delayColor(BuildContext context, int delay) {

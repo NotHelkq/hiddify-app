@@ -29,17 +29,7 @@ class ActiveProxyDelayIndicator extends HookConsumerWidget with InfraLogger {
     }
 
     final proxy = activeProxy.value!;
-    var delay = proxy.urlTestDelay;
-    if (delay <= 0) {
-      final activeProfile = ref.watch(activeProfileProvider).valueOrNull;
-      if (activeProfile != null) {
-        final prefs = ref.watch(sharedPreferencesProvider).valueOrNull;
-        final cached = prefs?.getInt("proxy_delay_${activeProfile.id}_${proxy.tag}") ?? 0;
-        if (cached > 0) {
-          delay = cached;
-        }
-      }
-    }
+    final delay = proxy.urlTestDelay;
     final timeout = delay > 65000;
 
     return Center(

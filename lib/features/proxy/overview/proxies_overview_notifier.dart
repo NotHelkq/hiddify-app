@@ -229,6 +229,7 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
         loggy.warning("error selecting outbound", err);
         throw err;
       }).run();
+      unawaited(ref.read(proxyRepositoryProvider).urlTestActive().run());
     }
 
     final activeProfile = await ref.read(activeProfileProvider.future);

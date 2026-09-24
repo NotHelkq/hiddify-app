@@ -16,6 +16,7 @@ abstract interface class ProxyRepository {
   TaskEither<ProxyFailure, oldipinfo.IpInfo> getCurrentIpInfo(CancelToken cancelToken);
   TaskEither<ProxyFailure, Unit> selectProxy(String groupTag, String outboundTag);
   TaskEither<ProxyFailure, Unit> urlTest(String groupTag);
+  TaskEither<ProxyFailure, Unit> urlTestActive();
 }
 
 class ProxyRepositoryImpl with ExceptionHandler, InfraLogger implements ProxyRepository {
@@ -87,6 +88,14 @@ class ProxyRepositoryImpl with ExceptionHandler, InfraLogger implements ProxyRep
   TaskEither<ProxyFailure, Unit> urlTest(String groupTag) {
     return exceptionHandler(
       () => singbox.urlTest(groupTag).mapLeft(ProxyUnexpectedFailure.new).run(),
+      ProxyUnexpectedFailure.new,
+    );
+  }
+
+  @override
+  TaskEither<ProxyFailure, Unit> urlTestActive() {
+    return exceptionHandler(
+      () => singbox.urlTestActive().mapLeft(ProxyUnexpectedFailure.new).run(),
       ProxyUnexpectedFailure.new,
     );
   }

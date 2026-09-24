@@ -32,21 +32,24 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       }).run();
     }
 
+    ref.onDispose(() {
+      _stopPeriodicPings();
+    });
+
     listenSelf((previous, next) async {
       if (previous == next) return;
-      if (previous case AsyncData(:final value) when !value.isConnected) {
-        if (next case AsyncData(value: final Connected _)) {
-          await ref.read(hapticServiceProvider.notifier).heavyImpact();
-          // Test active proxy immediately on connect so ping appears right away!
-          unawaited(ref.read(proxyRepositoryProvider).urlTest("").run());
+      if (next case AsyncData(value: final Connected _)) {
+        await ref.read(hapticServiceProvider.notifier).heavyImpact();
+        _startPeriodicPings();
 
-          if (Platform.isAndroid && !ref.read(Preferences.storeReviewedByUser)) {
-            if (await InAppReview.instance.isAvailable()) {
-              InAppReview.instance.requestReview();
-              ref.read(Preferences.storeReviewedByUser.notifier).update(true);
-            }
+        if (Platform.isAndroid && !ref.read(Preferences.storeReviewedByUser)) {
+          if (await InAppReview.instance.isAvailable()) {
+            InAppReview.instance.requestReview();
+            ref.read(Preferences.storeReviewedByUser.notifier).update(true);
           }
         }
+      } else if (next case AsyncData(value: final Disconnected _) || AsyncData(value: final Disconnecting _) || AsyncError()) {
+        _stopPeriodicPings();
       }
     });
 
@@ -65,6 +68,46 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       }
       loggy.info("connection status: ${event.format()}");
     });
+  }
+
+  Timer? _activePingTimer;
+  Timer? _allConfigsPingTimer;
+
+  void _startPeriodicPings() {
+    _stopPeriodicPings();
+    unawaited(ref.read(proxyRepositoryProvider).urlTestActive().run());
+
+    _activePingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final isConn = state.valueOrNull?.isConnected ?? false;
+      if (isConn) {
+        unawaited(ref.read(proxyRepositoryProvider).urlTestActive().run());
+      } else {
+        _stopPeriodicPings();
+      }
+    });
+
+    Timer(const Duration(seconds: 3), () {
+      final isConn = state.valueOrNull?.isConnected ?? false;
+      if (isConn) {
+        unawaited(ref.read(proxyRepositoryProvider).urlTest("").run());
+      }
+    });
+
+    _allConfigsPingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      final isConn = state.valueOrNull?.isConnected ?? false;
+      if (isConn) {
+        unawaited(ref.read(proxyRepositoryProvider).urlTest("").run());
+      } else {
+        _stopPeriodicPings();
+      }
+    });
+  }
+
+  void _stopPeriodicPings() {
+    _activePingTimer?.cancel();
+    _activePingTimer = null;
+    _allConfigsPingTimer?.cancel();
+    _allConfigsPingTimer = null;
   }
 
   ConnectionRepository get _connectionRepo => ref.read(connectionRepositoryProvider);

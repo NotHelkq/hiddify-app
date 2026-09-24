@@ -6,6 +6,7 @@ import 'package:hiddify/core/preferences/preferences_provider.dart';
 import 'package:hiddify/features/profile/data/profile_data_providers.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
+import 'package:hiddify/singbox/model/singbox_proxy_type.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:loggy/loggy.dart';
 
@@ -39,20 +40,11 @@ String trimTagName(String tag) {
 /// Measures TCP connection latency to [host]:[port].
 /// Returns elapsed time in milliseconds, or 65535 on timeout/failure.
 Future<int> tcpPing(String host, int port, {Duration timeout = const Duration(seconds: 3)}) async {
-  if (host.isEmpty || port <= 0) return 65535;
-
-  var targetHost = host;
-  var targetPort = port;
-
-  // For loopback / olcRTC local SOCKS, ping the carrier endpoint
-  if (targetHost == "127.0.0.1" || targetHost == "localhost") {
-    targetHost = "my.mts-link.ru";
-    targetPort = 443;
-  }
+  if (host.isEmpty || port <= 0 || host == "127.0.0.1" || host == "localhost") return 65535;
 
   final sw = Stopwatch()..start();
   try {
-    final socket = await Socket.connect(targetHost, targetPort, timeout: timeout);
+    final socket = await Socket.connect(host, port, timeout: timeout);
     sw.stop();
     await socket.close();
     return sw.elapsedMilliseconds;
@@ -227,7 +219,7 @@ Future<OutboundGroup?> loadOfflineOutboundGroup(
         OutboundInfo(
           tag: tag,
           tagDisplay: trimTagName(tag),
-          type: type,
+          type: formatProxyType(type, tag),
           host: host,
           port: port,
           isVisible: true,

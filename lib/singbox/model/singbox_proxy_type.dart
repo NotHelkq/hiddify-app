@@ -47,3 +47,21 @@ enum ProxyType {
   static final Map<String, ProxyType> _keyMap = Map.fromEntries(ProxyType.values.map((e) => MapEntry(e.key, e)));
   static ProxyType fromJson(dynamic type) => _keyMap[(type as String?)?.toLowerCase()] ?? ProxyType.unknown;
 }
+
+String formatProxyType(String type, String tag) {
+  final lowerTag = tag.toLowerCase();
+  final isOlcRTC = lowerTag.contains('olcrtc') || lowerTag.contains('olconnect');
+
+  return type.split('→').map((part) {
+    final trimmed = part.trim();
+    final lower = trimmed.toLowerCase();
+    if (isOlcRTC && (lower == 'socks' || lower == 'olcrtc')) {
+      return 'olcRTC';
+    }
+    final pt = ProxyType.fromJson(lower);
+    if (pt != ProxyType.unknown) {
+      return pt.label;
+    }
+    return trimmed;
+  }).join(' → ');
+}

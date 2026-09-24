@@ -44,6 +44,7 @@ class HiddifyCoreService with InfraLogger {
   final CallOptions? grpcOptions = null; //CallOptions(timeout: const Duration(milliseconds: 10000));
   final Map<String, StreamSubscription?> subscriptions = {};
   List<OutboundGroup> latest = [];
+  bool _isStopping = false;
 
   Future<void> init() async {
     await setup()
@@ -140,6 +141,7 @@ class HiddifyCoreService with InfraLogger {
 
   TaskEither<ConnectionFailure, Unit> start(String path, String name, bool disableMemoryLimit) {
     return TaskEither(() async {
+      _isStopping = false;
       statusController.add(currentState = const CoreStatus.starting());
       loggy.debug("starting");
       final background = await core.setupBackground(path, name);
@@ -220,6 +222,7 @@ class HiddifyCoreService with InfraLogger {
   TaskEither<String, Unit> stop() {
     return TaskEither(() async {
       loggy.debug("stopping");
+      _isStopping = true;
       var errMsg = "";
       // 1. Immediately signal Android to shut down the VPN TUN interface
       unawaited(core.stopMethodChannel());
@@ -382,6 +385,21 @@ class HiddifyCoreService with InfraLogger {
     });
   }
 
+  TaskEither<String, Unit> urlTestActive() {
+    return TaskEither(() async {
+      loggy.debug("url test active");
+      try {
+        final res = await core.bgClient.urlTestActive(Empty());
+        if (res.code != ResponseCode.OK) return left("${res.code} ${res.message}");
+
+        return right(unit);
+      } catch (e) {
+        loggy.error("error in url test active: $e");
+        return left(e.toString());
+      }
+    });
+  }
+
   List<LogMessage> logBuffer = [];
 
   // SingboxConfigOption? latestOptions;
@@ -478,6 +496,12 @@ class HiddifyCoreService with InfraLogger {
           })
           .endWith(CoreInfoResponse(coreState: CoreStates.STOPPED))
           .map((event) {
+            if (_isStopping && event.coreState != CoreStates.STOPPED) {
+              return currentState;
+            }
+            if (event.coreState == CoreStates.STOPPED) {
+              _isStopping = false;
+            }
             currentState = CoreStatus.fromCoreInfo(event);
             statusController.add(currentState);
             return currentState;

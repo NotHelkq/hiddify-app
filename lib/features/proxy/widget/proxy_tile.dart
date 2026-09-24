@@ -3,6 +3,7 @@ import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/features/proxy/active/ip_widget.dart';
 import 'package:hiddify/gen/fonts.gen.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
+import 'package:hiddify/singbox/model/singbox_proxy_type.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:hiddify/utils/platform_utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -33,7 +34,7 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
       ),
       subtitle: Text.rich(
         TextSpan(
-          text: _formatProxyType(proxy.type, proxy.tag),
+          text: formatProxyType(proxy.type, proxy.tag),
           children: [
             if (proxy.isGroup)
               TextSpan(
@@ -79,13 +80,4 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
       _ => Colors.red,
     };
   }
-}
-
-String _formatProxyType(String type, String tag) {
-  final lowerType = type.toLowerCase();
-  final lowerTag = tag.toLowerCase();
-  if (lowerType == 'socks' && (lowerTag.contains('olcrtc') || lowerTag.contains('olconnect'))) {
-    return 'olcRTC';
-  }
-  return type;
 }
