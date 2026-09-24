@@ -88,5 +88,15 @@ class Application : Application() {
         val notificationManager by lazy { application.getSystemService<NotificationManager>()!! }
 
         val wifiManager by lazy { application.getSystemService<WifiManager>()!! }
+
+        fun log(tag: String, msg: String) {
+            Log.d(tag, msg)
+            try {
+                val dir = application.getExternalFilesDir(null) ?: application.filesDir
+                val file = File(dir, "app.log")
+                val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date())
+                file.appendText("$time - [KT] [$tag] $msg\n")
+            } catch (_: Throwable) {}
+        }
     }
 }

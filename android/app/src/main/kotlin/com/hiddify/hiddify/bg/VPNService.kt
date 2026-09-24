@@ -25,8 +25,10 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
 
     private val service = BoxService(this, this)
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) =
-        service.onStartCommand()
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Application.log("VPNService", "onStartCommand flags=$flags startId=$startId")
+        return service.onStartCommand()
+    }
 
     override fun onBind(intent: Intent): IBinder {
         val binder = super.onBind(intent)
@@ -75,6 +77,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
     }
 
     override fun openTun(options: TunOptions): Int {
+        Application.log("VPNService", "openTun started: mtu=${options.mtu}")
         var hasPermission = false
         for (i in 0 until 20) {
             if (prepare(this) != null) {
@@ -87,8 +90,9 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         }
 
         if (!hasPermission) {
-             error("android: missing vpn permission")
-    }
+            Application.log("VPNService", "ERROR: android missing vpn permission")
+            throw Exception("android: missing vpn permission")
+        }
 //        service.fileDescriptor?.close()
 
         val builder = Builder()
@@ -246,12 +250,16 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         }
 
         val pfd = try {
-            builder.establish() ?: error("android: the application is not prepared or is revoked")
+            builder.establish()
         } catch (t: Throwable) {
-            Log.e(TAG, "Failed to establish VPN", t)
-            throw t
+            Application.log(TAG, "builder.establish() threw: ${t.message}")
+            throw Exception("Failed to establish VPN: ${t.message}", t)
+        } ?: run {
+            Application.log(TAG, "builder.establish() returned null!")
+            throw Exception("android: the application is not prepared or is revoked")
         }
         service.fileDescriptor = pfd
+        Application.log(TAG, "VPN established successfully! fd=${pfd.fd}")
         return pfd.fd
     }
 

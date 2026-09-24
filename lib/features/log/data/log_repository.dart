@@ -27,15 +27,62 @@ class LogRepositoryImpl with ExceptionHandler, InfraLogger implements LogReposit
         if (!await logPathResolver.directory.exists()) {
           await logPathResolver.directory.create(recursive: true);
         }
-        if (await logPathResolver.coreFile().exists()) {
-          await logPathResolver.coreFile().writeAsString("");
+        final coreFile = logPathResolver.coreFile();
+        if (await coreFile.exists()) {
+          try {
+            await coreFile.copy("${coreFile.path}.prev");
+          } catch (_) {}
+          try {
+            await coreFile.writeAsString(
+              "\n\n==================== APP RESTARTED: ${DateTime.now().toIso8601String()} ====================\n\n",
+              mode: FileMode.append,
+            );
+          } catch (_) {}
         } else {
-          await logPathResolver.coreFile().create(recursive: true);
+          await coreFile.create(recursive: true);
         }
-        if (await logPathResolver.appFile().exists()) {
-          await logPathResolver.appFile().writeAsString("");
+
+        final appFile = logPathResolver.appFile();
+        if (await appFile.exists()) {
+          try {
+            await appFile.copy("${appFile.path}.prev");
+          } catch (_) {}
+          try {
+            await appFile.writeAsString(
+              "\n\n==================== APP RESTARTED: ${DateTime.now().toIso8601String()} ====================\n\n",
+              mode: FileMode.append,
+            );
+          } catch (_) {}
         } else {
-          await logPathResolver.appFile().create(recursive: true);
+          await appFile.create(recursive: true);
+        }
+
+        final stderrFile = logPathResolver.stderrFile();
+        if (await stderrFile.exists()) {
+          try {
+            final content = await stderrFile.readAsString();
+            if (content.trim().isNotEmpty) {
+              await appFile.writeAsString(
+                "\n\n==================== STDERR (PANIC/CRASH) DETECTED ====================\n$content\n========================================================================\n\n",
+                mode: FileMode.append,
+              );
+              await stderrFile.copy("${stderrFile.path}.prev");
+            }
+          } catch (_) {}
+        }
+
+        final crashFile = logPathResolver.crashFile();
+        if (await crashFile.exists()) {
+          try {
+            final content = await crashFile.readAsString();
+            if (content.trim().isNotEmpty) {
+              await appFile.writeAsString(
+                "\n\n==================== KOTLIN/JVM CRASH LOG DETECTED ====================\n$content\n=======================================================================\n\n",
+                mode: FileMode.append,
+              );
+              await crashFile.copy("${crashFile.path}.prev");
+            }
+          } catch (_) {}
         }
       }
       return right(unit);

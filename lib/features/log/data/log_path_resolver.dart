@@ -16,4 +16,12 @@ class LogPathResolver {
   File appFile() {
     return File(p.join(directory.path, "app.log"));
   }
+
+  File stderrFile() {
+    return File(p.join(directory.path, "stderr.log"));
+  }
+
+  File crashFile() {
+    return File(p.join(directory.path, "crash.log"));
+  }
 }

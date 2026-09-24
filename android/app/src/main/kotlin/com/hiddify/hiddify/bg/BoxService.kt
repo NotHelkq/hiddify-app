@@ -70,6 +70,7 @@ class BoxService(
             Log.d(TAG, "base dir: ${baseDir.path}")
             Log.d(TAG, "working dir: ${workingDir.path}")
             Log.d(TAG, "temp dir: ${tempDir.path}")
+            Application.log(TAG, "initialize: baseDir=${baseDir.path}, workingDir=${workingDir.path}")
 
             try {
                 Libbox.redirectStderr(File(workingDir, "stderr.log").path)
@@ -150,8 +151,9 @@ class BoxService(
                 }
             }
 
+            Application.log(TAG, "Starting DefaultNetworkMonitor")
             DefaultNetworkMonitor.start()
-            Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
+            Application.log(TAG, "Calling Mobile.setup (mode=4, port=${Settings.grpcServiceModePort})")
             val newService = try {
                 Mobile.setup(
                     SetupOptions().also {
@@ -164,14 +166,12 @@ class BoxService(
                         it.secret=""
                         it.debug = Settings.debugMode
                     },platformInterface)
-
-
-//                Libbox.newService(content,platformInterface)
-
             } catch (e: Exception) {
+                Application.log(TAG, "Mobile.setup FAILED: ${e.message}")
                 stopAndAlert(Alert.CreateService, e.message)
                 return
             }
+            Application.log(TAG, "Mobile.setup SUCCESS, status=Started")
             status.postValue(Status.Started)
 
             if (Settings.startCoreAfterStartingService){
@@ -295,6 +295,7 @@ class BoxService(
     }
 
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
+        Application.log(TAG, "stopAndAlert: type=$type, message=$message")
         Settings.startedByUser = false
         withContext(Dispatchers.Main) {
             if (receiverRegistered) {
@@ -317,6 +318,7 @@ class BoxService(
     @OptIn(DelicateCoroutinesApi::class)
     @Suppress("SameReturnValue")
     internal fun onStartCommand(): Int {
+        Application.log(TAG, "onStartCommand: current status=${status.value}")
         if (status.value != Status.Stopped) return Service.START_NOT_STICKY
         status.value = Status.Starting
 
@@ -324,6 +326,7 @@ class BoxService(
         try {
             notification.show(Settings.activeProfileName, R.string.status_starting)
         } catch (t: Throwable) {
+            Application.log(TAG, "Error showing initial notification: ${t.message}")
             Log.e(TAG, "Error showing initial notification in onStartCommand", t)
         }
 
@@ -340,9 +343,12 @@ class BoxService(
         GlobalScope.launch(Dispatchers.IO) {
             try {
                 Settings.startedByUser = true
+                Application.log(TAG, "onStartCommand IO: calling initialize()")
                 initialize()
+                Application.log(TAG, "onStartCommand IO: calling startService()")
                 startService()
             } catch (t: Throwable) {
+                Application.log(TAG, "Fatal error in onStartCommand IO coroutine: ${t.message}\n${Log.getStackTraceString(t)}")
                 Log.e(TAG, "Fatal error in onStartCommand IO coroutine", t)
                 stopAndAlert(Alert.StartService, t.message)
             }

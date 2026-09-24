@@ -49,20 +49,30 @@ object DefaultNetworkMonitor {
     private fun checkDefaultInterfaceUpdate(newNetwork: Network?) {
         val listener = listener ?: return
         if (newNetwork != null) {
-            val interfaceName =
-                (Application.connectivity.getLinkProperties(newNetwork) ?: return).interfaceName
+            val linkProps = Application.connectivity.getLinkProperties(newNetwork) ?: return
+            val interfaceName = linkProps.interfaceName ?: return
             for (times in 0 until 10) {
-                var interfaceIndex: Int
+                val interfaceIndex: Int
                 try {
-                    interfaceIndex = NetworkInterface.getByName(interfaceName).index
+                    val netIf = NetworkInterface.getByName(interfaceName) ?: throw NullPointerException("not found")
+                    interfaceIndex = netIf.index
                 } catch (e: Exception) {
                     Thread.sleep(100)
                     continue
                 }
-                listener.updateDefaultInterface(interfaceName, interfaceIndex, false, false)
+                try {
+                    listener.updateDefaultInterface(interfaceName, interfaceIndex, false, false)
+                } catch (t: Throwable) {
+                    Application.log("DefaultNetworkMonitor", "updateDefaultInterface failed: ${t.message}")
+                }
+                break
             }
         } else {
-            listener.updateDefaultInterface("", -1, false, false)
+            try {
+                listener.updateDefaultInterface("", -1, false, false)
+            } catch (t: Throwable) {
+                Application.log("DefaultNetworkMonitor", "updateDefaultInterface empty failed: ${t.message}")
+            }
         }
     }
 }
