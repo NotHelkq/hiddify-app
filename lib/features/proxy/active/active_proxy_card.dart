@@ -6,7 +6,6 @@ import 'package:hiddify/features/connection/model/connection_status.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
 import 'package:hiddify/features/proxy/active/ip_widget.dart';
-import 'package:hiddify/features/proxy/widget/proxy_tile.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -150,6 +149,21 @@ String _formatProxyType(String type, String tag) {
     return 'olcRTC';
   }
   return type;
+}
+
+Color delayColor(BuildContext context, int delay) {
+  if (Theme.of(context).brightness == Brightness.dark) {
+    return switch (delay) {
+      < 800 => Colors.lightGreen,
+      < 1500 => Colors.orange,
+      _ => Colors.redAccent,
+    };
+  }
+  return switch (delay) {
+    < 800 => Colors.green,
+    < 1500 => Colors.deepOrangeAccent,
+    _ => Colors.red,
+  };
 }
 
 // class _StatsColumn extends HookConsumerWidget {
