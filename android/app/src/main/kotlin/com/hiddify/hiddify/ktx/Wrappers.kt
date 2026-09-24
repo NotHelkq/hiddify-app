@@ -23,4 +23,7 @@ fun StringIterator.toList(): List<String> {
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-fun RoutePrefix.toIpPrefix() = IpPrefix(InetAddress.getByName(address()), prefix())
+fun RoutePrefix.toIpPrefix(): IpPrefix {
+    val clean = address().substringBefore('%')
+    return IpPrefix(InetAddress.getByName(clean), prefix())
+}

@@ -52,28 +52,27 @@ interface PlatformInterfaceWrapper : PlatformInterface {
         destinationAddress: String,
         destinationPort: Int,
     ): ConnectionOwner {
+        val owner = ConnectionOwner()
+        owner.userId = Process.INVALID_UID
+        owner.userName = ""
+        owner.setAndroidPackageNames(StringArray(emptyList<String>().iterator()))
         try {
             val uid =
                 Application.connectivity.getConnectionOwnerUid(
                     ipProtocol,
-                    InetSocketAddress(sourceAddress, sourcePort),
-                    InetSocketAddress(destinationAddress, destinationPort),
+                    InetSocketAddress(sourceAddress.substringBefore('%'), sourcePort),
+                    InetSocketAddress(destinationAddress.substringBefore('%'), destinationPort),
                 )
-//            if (uid == Process.INVALID_UID)error("android: connection owner not found")
-
-            val owner = ConnectionOwner()
             owner.userId = uid
-            if (uid!=Process.INVALID_UID) {
+            if (uid != Process.INVALID_UID) {
                 val packages = Application.packageManager.getPackagesForUid(uid)
                 owner.userName = packages?.firstOrNull() ?: ""
                 owner.setAndroidPackageNames(StringArray(packages?.iterator() ?: emptyList<String>().iterator()))
             }
-            return owner
-        } catch (e: Exception) {
-            Log.e("PlatformInterface", "getConnectionOwnerUid", e)
-            e.printStackTrace(System.err)
-            throw e
+        } catch (t: Throwable) {
+            Log.w("PlatformInterface", "getConnectionOwnerUid: ${t.message}")
         }
+        return owner
     }
 
     override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
@@ -106,7 +105,7 @@ interface PlatformInterfaceWrapper : PlatformInterface {
             val networkInterface =
                 networkInterfaces.find { it.name == boxInterface.name } ?: continue
             boxInterface.dnsServer =
-                StringArray(linkProperties.dnsServers.mapNotNull { it.hostAddress }.iterator())
+                StringArray(linkProperties.dnsServers.mapNotNull { it.hostAddress?.substringBefore('%') }.iterator())
             boxInterface.type =
                 when {
                     networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Libbox.InterfaceTypeWIFI
@@ -126,7 +125,11 @@ interface PlatformInterfaceWrapper : PlatformInterface {
             }
             boxInterface.addresses =
                 StringArray(
-                    networkInterface.interfaceAddresses.mapTo(mutableListOf()) { it.toPrefix() }
+                    networkInterface.interfaceAddresses
+                        .mapNotNull {
+                            val p = it.toPrefix()
+                            if (p.isNotEmpty() && !p.startsWith("/")) p else null
+                        }
                         .iterator(),
                 )
             var dumpFlags = 0
@@ -207,10 +210,14 @@ interface PlatformInterfaceWrapper : PlatformInterface {
         override fun next(): String = iterator.next()
     }
 
-    private fun InterfaceAddress.toPrefix(): String = if (address is Inet6Address) {
-        "${Inet6Address.getByAddress(address.address).hostAddress}/$networkPrefixLength"
-    } else {
-        "${address.hostAddress}/$networkPrefixLength"
+    private fun InterfaceAddress.toPrefix(): String {
+        val raw = if (address is Inet6Address) {
+            Inet6Address.getByAddress(address.address).hostAddress
+        } else {
+            address.hostAddress
+        }
+        val host = raw?.substringBefore('%') ?: return ""
+        return "$host/$networkPrefixLength"
     }
 
     private val NetworkInterface.flags: Int

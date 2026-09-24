@@ -100,60 +100,94 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         }
 
         val inet4Address = options.inet4Address
+        var v4AddressAdded = false
         while (inet4Address.hasNext()) {
             val address = inet4Address.next()
-            builder.addAddress(address.address(), address.prefix())
+            runCatching {
+                builder.addAddress(address.address(), address.prefix())
+                v4AddressAdded = true
+            }.onFailure { Log.w(TAG, "addAddress v4 failed: ${address.address()}/${address.prefix()}", it) }
         }
 
         val inet6Address = options.inet6Address
         while (inet6Address.hasNext()) {
             val address = inet6Address.next()
-            builder.addAddress(address.address(), address.prefix())
+            runCatching {
+                builder.addAddress(address.address(), address.prefix())
+            }.onFailure { Log.w(TAG, "addAddress v6 failed: ${address.address()}/${address.prefix()}", it) }
+        }
+
+        if (!v4AddressAdded) {
+            runCatching {
+                builder.addAddress("172.19.0.1", 30)
+            }.onFailure { Log.w(TAG, "fallback addAddress failed", it) }
         }
 
         if (options.autoRoute) {
-            val dnsIterator = options.dnsServerAddress
-            while (dnsIterator.hasNext()) {
-                val dns = dnsIterator.next()
-                if (dns.isNotEmpty()) {
-                    builder.addDnsServer(dns)
+            var dnsAdded = false
+            runCatching {
+                val dnsIterator = options.dnsServerAddress
+                while (dnsIterator.hasNext()) {
+                    val dns = dnsIterator.next()
+                    if (!dns.isNullOrBlank()) {
+                        val cleanDns = dns.substringBefore('%')
+                        runCatching {
+                            builder.addDnsServer(cleanDns)
+                            dnsAdded = true
+                        }.onFailure { Log.w(TAG, "addDnsServer failed for $cleanDns", it) }
+                    }
                 }
+            }
+            if (!dnsAdded) {
+                runCatching {
+                    builder.addDnsServer("1.1.1.1")
+                }.onFailure { Log.w(TAG, "fallback addDnsServer failed", it) }
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val inet4RouteAddress = options.inet4RouteAddress
                 if (inet4RouteAddress.hasNext()) {
                     while (inet4RouteAddress.hasNext()) {
-                        builder.addRoute(inet4RouteAddress.next().toIpPrefix())
+                        runCatching {
+                            builder.addRoute(inet4RouteAddress.next().toIpPrefix())
+                        }.onFailure { Log.w(TAG, "addRoute v4 failed", it) }
                     }
                 } else {
-                    builder.addRoute("0.0.0.0", 0)
+                    runCatching { builder.addRoute("0.0.0.0", 0) }
                 }
 
                 val inet6RouteAddress = options.inet6RouteAddress
                 if (inet6RouteAddress.hasNext()) {
                     while (inet6RouteAddress.hasNext()) {
-                        builder.addRoute(inet6RouteAddress.next().toIpPrefix())
+                        runCatching {
+                            builder.addRoute(inet6RouteAddress.next().toIpPrefix())
+                        }.onFailure { Log.w(TAG, "addRoute v6 failed", it) }
                     }
                 } else {
-                    builder.addRoute("::", 0)
+                    runCatching { builder.addRoute("::", 0) }
                 }
 
                 val inet4RouteExcludeAddress = options.inet4RouteExcludeAddress
                 while (inet4RouteExcludeAddress.hasNext()) {
-                    builder.excludeRoute(inet4RouteExcludeAddress.next().toIpPrefix())
+                    runCatching {
+                        builder.excludeRoute(inet4RouteExcludeAddress.next().toIpPrefix())
+                    }.onFailure { Log.w(TAG, "excludeRoute v4 failed", it) }
                 }
 
                 val inet6RouteExcludeAddress = options.inet6RouteExcludeAddress
                 while (inet6RouteExcludeAddress.hasNext()) {
-                    builder.excludeRoute(inet6RouteExcludeAddress.next().toIpPrefix())
+                    runCatching {
+                        builder.excludeRoute(inet6RouteExcludeAddress.next().toIpPrefix())
+                    }.onFailure { Log.w(TAG, "excludeRoute v6 failed", it) }
                 }
             } else {
                 val inet4RouteAddress = options.inet4RouteRange
                 if (inet4RouteAddress.hasNext()) {
                     while (inet4RouteAddress.hasNext()) {
                         val address = inet4RouteAddress.next()
-                        builder.addRoute(address.address(), address.prefix())
+                        runCatching {
+                            builder.addRoute(address.address(), address.prefix())
+                        }.onFailure { Log.w(TAG, "addRoute v4 legacy failed", it) }
                     }
                 }
 
@@ -161,7 +195,9 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                 if (inet6RouteAddress.hasNext()) {
                     while (inet6RouteAddress.hasNext()) {
                         val address = inet6RouteAddress.next()
-                        builder.addRoute(address.address(), address.prefix())
+                        runCatching {
+                            builder.addRoute(address.address(), address.prefix())
+                        }.onFailure { Log.w(TAG, "addRoute v6 legacy failed", it) }
                     }
                 }
             }
@@ -170,33 +206,29 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                 val appList = Settings.perAppProxyList
                 if (Settings.perAppProxyMode == PerAppProxyMode.INCLUDE) {
                     appList.forEach {
-                        addIncludePackage(builder,it)
+                        addIncludePackage(builder, it)
                     }
-//                    addIncludePackage(builder,packageName)
                 } else {
                     appList.forEach {
-                        addExcludePackage(builder,it)
+                        addExcludePackage(builder, it)
                     }
-                    addExcludePackage(builder,packageName)
+                    addExcludePackage(builder, packageName)
                 }
             } else {
                 val includePackage = options.includePackage
                 if (includePackage.hasNext()) {
                     while (includePackage.hasNext()) {
-                        addIncludePackage(builder,includePackage.next())
+                        addIncludePackage(builder, includePackage.next())
                     }
-                    //                    addIncludePackage(builder,packageName)
-                }else {
+                } else {
                     val excludePackage = options.excludePackage
                     if (excludePackage.hasNext()) {
                         while (excludePackage.hasNext()) {
                             addExcludePackage(builder, excludePackage.next())
                         }
                     }
-
                     addExcludePackage(builder, packageName)
                 }
-                
             }
         }
 
@@ -213,7 +245,12 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             systemProxyEnabled = false
         }
 
-        val pfd = builder.establish() ?: error("android: the application is not prepared or is revoked")
+        val pfd = try {
+            builder.establish() ?: error("android: the application is not prepared or is revoked")
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to establish VPN", t)
+            throw t
+        }
         service.fileDescriptor = pfd
         return pfd.fd
     }
