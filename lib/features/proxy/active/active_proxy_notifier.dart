@@ -99,11 +99,16 @@ class ActiveProxyNotifier extends _$ActiveProxyNotifier with AppLogger {
         .map((event) => event.getOrElse((l) => List<OutboundGroup>.empty()))
         .map((event) => event.firstOrNull?.items.first ?? OutboundInfo())
         .map((proxy) {
-          if (proxy.ipinfo.countryCode.isNotEmpty && proxy.tag.isNotEmpty) {
+          if (proxy.tag.isNotEmpty) {
             ref.read(sharedPreferencesProvider.future).then((prefs) async {
               final activeProfile = await ref.read(activeProfileProvider.future);
               if (activeProfile != null) {
-                await prefs.setString("proxy_country_${activeProfile.id}_${proxy.tag}", proxy.ipinfo.countryCode);
+                if (proxy.ipinfo.countryCode.isNotEmpty) {
+                  await prefs.setString("proxy_country_${activeProfile.id}_${proxy.tag}", proxy.ipinfo.countryCode);
+                }
+                if (proxy.urlTestDelay > 0) {
+                  await prefs.setInt("proxy_delay_${activeProfile.id}_${proxy.tag}", proxy.urlTestDelay);
+                }
               }
             });
           }

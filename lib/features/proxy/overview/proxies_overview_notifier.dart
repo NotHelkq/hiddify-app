@@ -88,7 +88,26 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
             throw err;
           }),
         )
-        .asyncMap((proxies) async => await _sortOutbounds(proxies, sortBy));
+        .asyncMap((proxies) async {
+          if (proxies != null && proxies.items.isNotEmpty) {
+            final activeProfile = await ref.read(activeProfileProvider.future);
+            if (activeProfile != null) {
+              final prefs = await ref.read(sharedPreferencesProvider.future);
+              for (final item in proxies.items) {
+                if (item.tag.isNotEmpty) {
+                  if (item.ipinfo.countryCode.isNotEmpty) {
+                    await prefs.setString("proxy_country_${activeProfile.id}_${item.tag}", item.ipinfo.countryCode);
+                  }
+                  if (item.urlTestDelay > 0) {
+                    _offlineDelays[item.tag] = item.urlTestDelay;
+                    await prefs.setInt("proxy_delay_${activeProfile.id}_${item.tag}", item.urlTestDelay);
+                  }
+                }
+              }
+            }
+          }
+          return await _sortOutbounds(proxies, sortBy);
+        });
   }
 
   // Future<List<OutboundGroup>> _sortOutbounds(
@@ -243,11 +262,17 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
     final group = state.value!;
     final sortBy = ref.read(proxiesSortNotifierProvider);
 
+    final activeProfile = await ref.read(activeProfileProvider.future);
+    final prefs = await ref.read(sharedPreferencesProvider.future);
+
     await pingOutboundGroupConcurrently(
       group.items,
       concurrency: 10,
       onProgress: (tag, delay) {
         _offlineDelays[tag] = delay;
+        if (activeProfile != null) {
+          prefs.setInt("proxy_delay_${activeProfile.id}_$tag", delay);
+        }
       },
     );
 

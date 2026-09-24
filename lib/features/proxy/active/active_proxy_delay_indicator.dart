@@ -2,9 +2,11 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:hiddify/core/localization/translations.dart';
+import 'package:hiddify/core/preferences/preferences_provider.dart';
 import 'package:hiddify/core/widget/shimmer_skeleton.dart';
 import 'package:hiddify/features/connection/model/connection_status.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
+import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -27,7 +29,17 @@ class ActiveProxyDelayIndicator extends HookConsumerWidget with InfraLogger {
     }
 
     final proxy = activeProxy.value!;
-    final delay = proxy.urlTestDelay;
+    var delay = proxy.urlTestDelay;
+    if (delay <= 0) {
+      final activeProfile = ref.watch(activeProfileProvider).valueOrNull;
+      if (activeProfile != null) {
+        final prefs = ref.watch(sharedPreferencesProvider).valueOrNull;
+        final cached = prefs?.getInt("proxy_delay_${activeProfile.id}_${proxy.tag}") ?? 0;
+        if (cached > 0) {
+          delay = cached;
+        }
+      }
+    }
     final timeout = delay > 65000;
 
     return Center(

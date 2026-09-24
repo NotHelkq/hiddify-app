@@ -215,7 +215,8 @@ Future<OutboundGroup?> loadOfflineOutboundGroup(
         }
       }
 
-      final delay = offlineDelays[tag] ?? 0;
+      final savedDelay = prefs.getInt("proxy_delay_${profile.id}_$tag") ?? 0;
+      final delay = offlineDelays[tag] ?? (savedDelay > 0 ? savedDelay : 0);
       var countryCode = extractCountryCodeFromTag(tag);
       if (countryCode.isEmpty) {
         countryCode = prefs.getString("proxy_country_${profile.id}_$tag") ?? "";

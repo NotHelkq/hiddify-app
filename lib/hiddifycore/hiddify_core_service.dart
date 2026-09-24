@@ -221,20 +221,25 @@ class HiddifyCoreService with InfraLogger {
     return TaskEither(() async {
       loggy.debug("stopping");
       var errMsg = "";
+      // 1. Immediately signal Android to shut down the VPN TUN interface
+      unawaited(core.stopMethodChannel());
+      // 2. Immediately notify UI that connection is stopped
+      statusController.add(currentState = const CoreStatus.stopped());
+      // 3. Gracefully stop Go core in background
       try {
-        final res = await core.bgClient.stop(Empty());
+        await core.bgClient.stop(Empty()).timeout(
+          const Duration(milliseconds: 800),
+          onTimeout: () => CoreInfoResponse(),
+        );
       } on GrpcError catch (e) {
         if (e.code == StatusCode.unknown && !(e.message?.contains("HTTP/2") ?? false)) {
           errMsg = e.message ?? "failed to stop core: $e";
-
           loggy.error("failed to stop bg core: $e");
         }
       } catch (e) {
         loggy.error("failed to stop bg core: $e");
-        // left("failed to stop core: $e");
       }
-      if (!await core.stop()) {}
-      statusController.add(currentState = const CoreStatus.stopped());
+      unawaited(core.stop());
       if (errMsg.isNotEmpty) return left(errMsg);
       return right(unit);
     });

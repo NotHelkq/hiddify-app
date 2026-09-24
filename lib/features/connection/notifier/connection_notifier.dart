@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:hiddify/core/haptic/haptic_service.dart';
@@ -10,6 +11,7 @@ import 'package:hiddify/features/connection/model/connection_failure.dart';
 import 'package:hiddify/features/connection/model/connection_status.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
+import 'package:hiddify/features/proxy/data/proxy_data_providers.dart';
 import 'package:hiddify/hiddifycore/init_signal.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -35,6 +37,8 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       if (previous case AsyncData(:final value) when !value.isConnected) {
         if (next case AsyncData(value: final Connected _)) {
           await ref.read(hapticServiceProvider.notifier).heavyImpact();
+          // Test active proxy immediately on connect so ping appears right away!
+          unawaited(ref.read(proxyRepositoryProvider).urlTest("").run());
 
           if (Platform.isAndroid && !ref.read(Preferences.storeReviewedByUser)) {
             if (await InAppReview.instance.isAvailable()) {
