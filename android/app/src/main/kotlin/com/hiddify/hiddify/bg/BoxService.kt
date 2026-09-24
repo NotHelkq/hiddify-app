@@ -307,7 +307,11 @@ class BoxService(
         Settings.startedByUser = false
         withContext(Dispatchers.Main) {
             if (receiverRegistered) {
-                service.unregisterReceiver(receiver)
+                try {
+                    service.unregisterReceiver(receiver)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Error unregistering receiver", t)
+                }
                 receiverRegistered = false
             }
             notification.close()
@@ -315,6 +319,7 @@ class BoxService(
                 callback.onServiceAlert(type.ordinal, message)
             }
             status.value = Status.Stopped
+            service.stopSelf()
         }
     }
 
@@ -323,6 +328,13 @@ class BoxService(
     internal fun onStartCommand(): Int {
         if (status.value != Status.Stopped) return Service.START_NOT_STICKY
         status.value = Status.Starting
+
+        // Call startForeground IMMEDIATELY to prevent ForegroundServiceDidNotStartInTimeException
+        try {
+            notification.show(Settings.activeProfileName, R.string.status_starting)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error showing initial notification in onStartCommand", t)
+        }
 
         if (!receiverRegistered) {
             ContextCompat.registerReceiver(service, receiver, IntentFilter().apply {

@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.util.Log
 import androidx.annotation.StringRes
@@ -113,11 +114,30 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
                 )
             )
         }
-        service.startForeground(
-            notificationId, notificationBuilder
-                .setContentTitle(profileName.takeIf { it.isNotBlank() } ?: "Hiddify")
-                .setContentText(service.getString(contentTextId)).build()
-        )
+        val notification = notificationBuilder
+            .setContentTitle(profileName.takeIf { it.isNotBlank() } ?: "Hiddify")
+            .setContentText(service.getString(contentTextId)).build()
+
+        try {
+            val fgsType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            } else {
+                0
+            }
+            ServiceCompat.startForeground(
+                service,
+                notificationId,
+                notification,
+                fgsType
+            )
+        } catch (e: Throwable) {
+            Log.e("ServiceNotification", "Failed to startForeground with type, fallback to basic", e)
+            try {
+                service.startForeground(notificationId, notification)
+            } catch (e2: Throwable) {
+                Log.e("ServiceNotification", "Failed to startForeground completely", e2)
+            }
+        }
     }
 
 
@@ -184,21 +204,26 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
             val coreClient = GrpcClientProvider.grpcClient.create(CoreClient::class)
 
             try {
-                var previous = coreClient.GetSystemInfo().executeBlocking(Empty())
+                var previous: SystemInfo? = null
 
                 while (isActive) {
-                    delay(1_000) // ✅ coroutine-friendly
-                    val current = coreClient.GetSystemInfo().executeBlocking(Empty())
-                    updateStatus(previous,current)
-                    previous = current
+                    try {
+                        val current = coreClient.GetSystemInfo().executeBlocking(Empty())
+                        if (previous != null) {
+                            updateStatus(previous, current)
+                        }
+                        previous = current
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        Log.w("notification", "SystemInfo polling error: ${e.message}")
+                    }
+                    delay(1_000)
                 }
             } catch (e: CancellationException) {
-                // coroutine cancelled normally
                 Log.d("notification", "SystemInfo polling cancelled")
-                notification.cancel(notificationId)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e("notification", "SystemInfo polling failed", e)
-                notification.cancel(notificationId)
             }
         }
     }
