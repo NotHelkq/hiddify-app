@@ -401,6 +401,7 @@ class ProfileParser {
         'shadowtls' => fragment ?? ProxyType.shadowtls.label,
         'mieru' => fragment ?? ProxyType.mieru.label,
         'warp' => fragment ?? ProxyType.warp.label,
+        'olcrtc' || 'olconnect' => fragment ?? 'olcRTC',
         _ => null,
       };
     }
