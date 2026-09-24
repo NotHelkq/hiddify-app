@@ -115,13 +115,14 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
 
     _isBgClientAvailable = true;
     loggy.info("Waiting for starting core");
+    poll:
     for (var i = 0; i < 20; i++) {
       try {
         final res = await _status.get(timeout: const Duration(seconds: 1));
 
         switch (res) {
           case CoreStarted():
-            break;
+            break poll;
           case CoreStopped():
             if (res.alert != null) {
               return res;

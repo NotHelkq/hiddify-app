@@ -8,6 +8,8 @@ import 'package:hiddify/core/directories/directories_provider.dart';
 import 'package:hiddify/core/model/directories.dart';
 import 'package:hiddify/core/notification/in_app_notification_controller.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
+import 'package:hiddify/core/preferences/preferences_provider.dart';
+import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/connection/model/connection_failure.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/hiddifycore/core_interface/core_interface.dart';
@@ -195,7 +197,21 @@ class HiddifyCoreService with InfraLogger {
         return left(ConnectionFailure.unexpected(msg));
       }
 
-      // if (res.messageType != MessageType.EMPTY) return left(res);
+      try {
+        final activeProfile = await ref.read(activeProfileProvider.future);
+        if (activeProfile != null) {
+          final prefs = await ref.read(sharedPreferencesProvider.future);
+          final savedTag = prefs.getString("selected_proxy_${activeProfile.id}");
+          if (savedTag != null && savedTag.isNotEmpty) {
+            loggy.info("applying saved proxy selection: $savedTag");
+            await core.bgClient.selectOutbound(
+              SelectOutboundRequest(groupTag: "select", outboundTag: savedTag),
+            );
+          }
+        }
+      } catch (e) {
+        loggy.warning("could not apply saved proxy selection: $e");
+      }
 
       return right(unit);
     });

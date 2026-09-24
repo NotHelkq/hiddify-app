@@ -5,8 +5,10 @@ import 'package:dartx/dartx.dart';
 import 'package:hiddify/core/haptic/haptic_service.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/preferences/preferences_provider.dart';
-import 'package:hiddify/core/utils/preferences_utils.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
+import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
+import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
+import 'package:hiddify/features/proxy/data/offline_proxy_loader.dart';
 import 'package:hiddify/features/proxy/data/proxy_data_providers.dart';
 import 'package:hiddify/features/proxy/model/proxy_failure.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
@@ -56,32 +58,27 @@ class ProxiesSortNotifier extends _$ProxiesSortNotifier with AppLogger {
 
 @riverpod
 class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
+  final Map<String, int> _offlineDelays = {};
+
   @override
-  Stream<OutboundGroup?> build() {
+  Stream<OutboundGroup?> build() async* {
     ref.disposeDelay(const Duration(seconds: 15));
     final serviceRunning = ref.watch(serviceRunningProvider);
-    if (!serviceRunning) {
-      return Stream.error(const ServiceNotRunning());
-    }
     final sortBy = ref.watch(proxiesSortNotifierProvider);
-    // yield* ref
-    //     .watch(proxyRepositoryProvider)
-    //     .watchProxies()
-    //     .throttleTime(
-    //       const Duration(milliseconds: 100),
-    //       leading: false,
-    //       trailing: true,
-    //     )
-    //     .map(
-    //       (event) => event.getOrElse(
-    //         (err) {
-    //           loggy.warning("error receiving proxies", err);
-    //           throw err;
-    //         },
-    //       ),
-    //     )
-    //     .asyncMap((proxies) async => _sortOutbounds(proxies, sortBy));
-    return ref
+
+    if (!serviceRunning) {
+      final activeProfile = await ref.watch(activeProfileProvider.future);
+      if (activeProfile == null) {
+        yield null;
+        return;
+      }
+      final group = await loadOfflineOutboundGroup(ref, activeProfile, _offlineDelays);
+      final sorted = await _sortOutbounds(group, sortBy);
+      yield sorted;
+      return;
+    }
+
+    yield* ref
         .watch(proxyRepositoryProvider)
         .watchProxies()
         .map(
@@ -202,29 +199,59 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
 
   Future<void> changeProxy(String groupTag, String outboundTag) async {
     loggy.debug("changing proxy, group: [$groupTag] - outbound: [$outboundTag]");
-    if (!state.hasValue) return;
+    if (!state.hasValue || state.value == null) return;
     final outbounds = state.value!;
     await ref.read(hapticServiceProvider.notifier).lightImpact();
-    await ref.read(proxyRepositoryProvider).selectProxy(groupTag, outboundTag).getOrElse((err) {
-      loggy.warning("error selecting outbound", err);
-      throw err;
-    }).run();
-    final newselected = outbounds.items.where((e) => e.tag == outboundTag).firstOrNull;
-    if (newselected != null) {
-      newselected.isSelected = true;
-      outbounds.selected = newselected.tag;
-      state = AsyncValue.data(outbounds);
+
+    final serviceRunning = ref.read(serviceRunningProvider);
+    if (serviceRunning) {
+      await ref.read(proxyRepositoryProvider).selectProxy(groupTag, outboundTag).getOrElse((err) {
+        loggy.warning("error selecting outbound", err);
+        throw err;
+      }).run();
     }
+
+    final activeProfile = await ref.read(activeProfileProvider.future);
+    if (activeProfile != null) {
+      final prefs = await ref.read(sharedPreferencesProvider.future);
+      await prefs.setString("selected_proxy_${activeProfile.id}", outboundTag);
+    }
+
+    for (final item in outbounds.items) {
+      item.isSelected = (item.tag == outboundTag);
+    }
+    outbounds.selected = outboundTag;
+    state = AsyncValue.data(outbounds);
+    ref.invalidate(activeProxyNotifierProvider);
   }
 
   Future<void> urlTest(String groupTag) async {
     loggy.debug("testing group: [$groupTag]");
-    if (state case AsyncData()) {
-      await ref.read(hapticServiceProvider.notifier).lightImpact();
+    if (!state.hasValue || state.value == null) return;
+    await ref.read(hapticServiceProvider.notifier).lightImpact();
+
+    final serviceRunning = ref.read(serviceRunningProvider);
+    if (serviceRunning) {
       await ref.read(proxyRepositoryProvider).urlTest(groupTag).getOrElse((err) {
         loggy.error("error testing group", err);
         throw err;
       }).run();
+      return;
     }
+
+    final group = state.value!;
+    final sortBy = ref.read(proxiesSortNotifierProvider);
+
+    await pingOutboundGroupConcurrently(
+      group.items,
+      concurrency: 10,
+      onProgress: (tag, delay) {
+        _offlineDelays[tag] = delay;
+      },
+    );
+
+    final sorted = await _sortOutbounds(group, sortBy);
+    state = AsyncValue.data(sorted);
+    ref.invalidate(activeProxyNotifierProvider);
   }
 }

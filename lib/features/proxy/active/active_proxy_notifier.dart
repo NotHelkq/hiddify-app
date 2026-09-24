@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hiddify/core/haptic/haptic_service.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/core/utils/throttler.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
+import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
+import 'package:hiddify/features/proxy/data/offline_proxy_loader.dart';
 import 'package:hiddify/features/proxy/data/proxy_data_providers.dart';
 import 'package:hiddify/features/proxy/data/proxy_repository.dart';
 import 'package:hiddify/features/proxy/model/ip_info_entity.dart' as oldipinfo;
@@ -75,13 +78,22 @@ class IpInfoNotifier extends _$IpInfoNotifier with AppLogger {
 @Riverpod(keepAlive: true)
 class ActiveProxyNotifier extends _$ActiveProxyNotifier with AppLogger {
   @override
-  Stream<OutboundInfo> build() {
-    // ref.disposeDelay(const Duration(seconds: 20));
+  Stream<OutboundInfo> build() async* {
     final serviceRunning = ref.watch(serviceRunningProvider);
     if (!serviceRunning) {
-      return Stream.error(const ServiceNotRunning());
+      final activeProfile = await ref.watch(activeProfileProvider.future);
+      if (activeProfile == null) {
+        return;
+      }
+      final group = await loadOfflineOutboundGroup(ref, activeProfile, {});
+      if (group != null && group.items.isNotEmpty) {
+        final selected = group.items.firstWhereOrNull((e) => e.tag == group.selected) ?? group.items.first;
+        yield selected;
+      }
+      return;
     }
-    return _proxyRepo
+
+    yield* _proxyRepo
         .watchActiveProxies()
         .map((event) => event.getOrElse((l) => List<OutboundGroup>.empty()))
         .map((event) => event.firstOrNull?.items.first ?? OutboundInfo());
@@ -94,12 +106,21 @@ class ActiveProxyNotifier extends _$ActiveProxyNotifier with AppLogger {
   Future<void> urlTest(String? groupTag_) async {
     final groupTag = groupTag_ ?? "";
     _urlTestThrottler(() async {
-      if (state case AsyncData()) {
-        await ref.read(hapticServiceProvider.notifier).lightImpact();
-        await ref.read(proxyRepositoryProvider).urlTest(groupTag).getOrElse((err) {
-          loggy.warning("error testing group", err);
-          throw err;
-        }).run();
+      await ref.read(hapticServiceProvider.notifier).lightImpact();
+      final serviceRunning = ref.read(serviceRunningProvider);
+      if (serviceRunning) {
+        if (state case AsyncData()) {
+          await ref.read(proxyRepositoryProvider).urlTest(groupTag).getOrElse((err) {
+            loggy.warning("error testing group", err);
+            throw err;
+          }).run();
+        }
+      } else {
+        if (state case AsyncData(value: final proxy)) {
+          final delay = await tcpPing(proxy.host, proxy.port);
+          proxy.urlTestDelay = delay;
+          state = AsyncData(proxy);
+        }
       }
     });
   }

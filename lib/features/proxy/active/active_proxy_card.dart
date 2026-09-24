@@ -6,6 +6,7 @@ import 'package:hiddify/features/connection/model/connection_status.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
 import 'package:hiddify/features/proxy/active/ip_widget.dart';
+import 'package:hiddify/features/proxy/widget/proxy_tile.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -23,10 +24,11 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
     final t = ref.watch(translationsProvider).requireValue;
 
     // Early return if required data is not available
-    if (connectionState != const Connected() || activeProxy == null) {
+    if (activeProxy == null || activeProxy.tagDisplay.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final isConnected = connectionState == const Connected();
     final theme = Theme.of(context);
 
     // Handle URL test in a way that won't trigger during build
@@ -58,14 +60,18 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
           children: [
             InkWell(
               onTap: () async {
-                await handleUrlTest();
-                await ref.read(dialogNotifierProvider.notifier).showProxyInfo(outboundInfo: activeProxy);
+                if (isConnected) {
+                  await handleUrlTest();
+                  await ref.read(dialogNotifierProvider.notifier).showProxyInfo(outboundInfo: activeProxy);
+                } else {
+                  context.goNamed('proxies');
+                }
               },
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: IPCountryFlag(
                   countryCode: activeProxy.ipinfo.countryCode,
-                  organization: activeProxy.ipinfo.org,
+                  organization: isConnected ? activeProxy.ipinfo.org : null,
                   size: 48,
                 ),
               ),
@@ -88,10 +94,23 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      if (activeProxy.ipinfo.ip.isNotEmpty)
+                      if (isConnected && activeProxy.ipinfo.ip.isNotEmpty)
                         IPText(ip: activeProxy.ipinfo.ip, onLongPress: handleUrlTest, constrained: true)
+                      else if (isConnected)
+                        UnknownIPText(text: t.pages.proxies.unknownIp, onTap: handleUrlTest)
+                      else if (activeProxy.urlTestDelay != 0)
+                        Text(
+                          activeProxy.urlTestDelay > 65000 ? "×" : "${activeProxy.urlTestDelay} ms",
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: delayColor(context, activeProxy.urlTestDelay),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
                       else
-                        UnknownIPText(text: t.pages.proxies.unknownIp, onTap: handleUrlTest),
+                        Text(
+                          t.pages.proxies.activeProxy,
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                        ),
                       const Spacer(),
                       Text(
                         // getRealOutboundTag(activeProxy),
