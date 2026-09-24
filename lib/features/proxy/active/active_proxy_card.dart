@@ -95,7 +95,7 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
                       const Spacer(),
                       Text(
                         // getRealOutboundTag(activeProxy),
-                        activeProxy.type,
+                        _formatProxyType(activeProxy.type, activeProxy.tagDisplay),
                         style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -122,6 +122,15 @@ String getRealOutboundTag(OutboundInfo group) {
     tag = "$tag → ${group.groupSelectedTagDisplay}";
   }
   return tag;
+}
+
+String _formatProxyType(String type, String tag) {
+  final lowerType = type.toLowerCase();
+  final lowerTag = tag.toLowerCase();
+  if (lowerType == 'socks' && (lowerTag.contains('olcrtc') || lowerTag.contains('olconnect'))) {
+    return 'olcRTC';
+  }
+  return type;
 }
 
 // class _StatsColumn extends HookConsumerWidget {

@@ -33,7 +33,7 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
       ),
       subtitle: Text.rich(
         TextSpan(
-          text: proxy.type,
+          text: _formatProxyType(proxy.type, proxy.tag),
           children: [
             if (proxy.isGroup)
               TextSpan(
@@ -79,4 +79,13 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
       _ => Colors.red,
     };
   }
+}
+
+String _formatProxyType(String type, String tag) {
+  final lowerType = type.toLowerCase();
+  final lowerTag = tag.toLowerCase();
+  if (lowerType == 'socks' && (lowerTag.contains('olcrtc') || lowerTag.contains('olconnect'))) {
+    return 'olcRTC';
+  }
+  return type;
 }
