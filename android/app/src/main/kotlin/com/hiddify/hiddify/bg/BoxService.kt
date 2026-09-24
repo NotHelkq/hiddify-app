@@ -59,13 +59,11 @@ class BoxService(
         private var initializeOnce = false
         private lateinit var workingDir: File
         private fun initialize() {
-            System.setProperty("GODEBUG", "efence=1,stacktraceback=2");
-            System.setProperty("GOGC", "off");
             if (initializeOnce) return
             val baseDir = Application.application.filesDir
 
             baseDir.mkdirs()
-            workingDir = Application.application.getExternalFilesDir(null) ?: return
+            workingDir = Application.application.getExternalFilesDir(null) ?: baseDir
             workingDir.mkdirs()
             val tempDir = Application.application.cacheDir
             tempDir.mkdirs()
@@ -73,18 +71,11 @@ class BoxService(
             Log.d(TAG, "working dir: ${workingDir.path}")
             Log.d(TAG, "temp dir: ${tempDir.path}")
 
-//
-            //Mobile.setup(baseDir.path, workingDir.path, tempDir.path,  2L ,"127.0.0.1:{Setting}","",false,this)
-//            Libbox.setup(baseDir.path, workingDir.path, tempDir.path, false)
-
-//            Libbox.setup(SetupOptions().also {
-//                it.basePath = baseDir.path
-//                it.workingPath = workingDir.path
-//                it.tempPath = tempDir.path
-//                it.fixAndroidStack = Bugs.fixAndroidStack
-//
-//            })
-            Libbox.redirectStderr(File(Settings.workingDir, "stderr.log").path)
+            try {
+                Libbox.redirectStderr(File(workingDir, "stderr.log").path)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to redirect stderr", t)
+            }
             initializeOnce = true
             return
         }
@@ -347,15 +338,14 @@ class BoxService(
         }
 
         GlobalScope.launch(Dispatchers.IO) {
-            Settings.startedByUser = true
-            initialize()
-//            try {
-//                startCommandServer()
-//            } catch (e: Exception) {
-//                stopAndAlert(Alert.StartCommandServer, e.message)
-//                return@launch
-//            }
-            startService()
+            try {
+                Settings.startedByUser = true
+                initialize()
+                startService()
+            } catch (t: Throwable) {
+                Log.e(TAG, "Fatal error in onStartCommand IO coroutine", t)
+                stopAndAlert(Alert.StartService, t.message)
+            }
         }
         return Service.START_NOT_STICKY
     }

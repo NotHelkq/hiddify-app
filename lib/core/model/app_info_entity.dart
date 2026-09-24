@@ -20,7 +20,7 @@ class AppInfoEntity with _$AppInfoEntity {
   String get userAgent => "HiddifyNext/$version ($operatingSystem) like ClashMeta v2ray sing-box";
 
   String get presentVersion =>
-      environment == Environment.prod ? "$version (olcRTC fix)" : "$version ${environment.name} (olcRTC fix)";
+      environment == Environment.prod ? "$version (clean mem fix)" : "$version ${environment.name} (clean mem fix)";
 
   /// formats app info for sharing
   String format() =>
