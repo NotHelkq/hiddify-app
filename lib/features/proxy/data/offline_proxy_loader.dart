@@ -27,6 +27,15 @@ String extractCountryCodeFromTag(String tag) {
   return "";
 }
 
+/// Strips duplicate index suffix (e.g. " § 0") added by Hiddify config generator.
+String trimTagName(String tag) {
+  final idx = tag.indexOf('§');
+  if (idx != -1) {
+    return tag.substring(0, idx).trim();
+  }
+  return tag.trim();
+}
+
 /// Measures TCP connection latency to [host]:[port].
 /// Returns elapsed time in milliseconds, or 65535 on timeout/failure.
 Future<int> tcpPing(String host, int port, {Duration timeout = const Duration(seconds: 3)}) async {
@@ -207,13 +216,16 @@ Future<OutboundGroup?> loadOfflineOutboundGroup(
       }
 
       final delay = offlineDelays[tag] ?? 0;
-      final countryCode = extractCountryCodeFromTag(tag);
+      var countryCode = extractCountryCodeFromTag(tag);
+      if (countryCode.isEmpty) {
+        countryCode = prefs.getString("proxy_country_${profile.id}_$tag") ?? "";
+      }
       final isSelected = (tag == selectedTag);
 
       items.add(
         OutboundInfo(
           tag: tag,
-          tagDisplay: tag,
+          tagDisplay: trimTagName(tag),
           type: type,
           host: host,
           port: port,

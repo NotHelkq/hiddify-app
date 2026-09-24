@@ -74,16 +74,19 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   Future<void> toggleConnection() async {
     final haptic = ref.read(hapticServiceProvider.notifier);
     if (state case AsyncError()) {
+      state = const AsyncData(Connecting());
       await haptic.lightImpact();
       await _connect();
     } else if (state case AsyncData(:final value)) {
       switch (value) {
         case Disconnected():
+          state = const AsyncData(Connecting());
           await haptic.lightImpact();
           await ref.read(Preferences.startedByUser.notifier).update(true);
           await _connect();
         case Connected():
           // default:
+          state = const AsyncData(Disconnecting());
           await haptic.mediumImpact();
           await ref.read(Preferences.startedByUser.notifier).update(false);
           await _disconnect();

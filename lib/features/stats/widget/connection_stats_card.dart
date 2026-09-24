@@ -47,7 +47,7 @@ class ConnectionStatsCard extends HookConsumerWidget {
             semanticLabel: null,
           ),
           _ => (
-            label: const Icon(FluentIcons.question_circle_20_regular),
+            label: const Icon(Icons.public, size: 20),
             data: const ShimmerSkeleton(widthFactor: .85, height: 14),
             semanticLabel: null,
           ),

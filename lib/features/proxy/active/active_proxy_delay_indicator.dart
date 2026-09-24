@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/widget/shimmer_skeleton.dart';
+import 'package:hiddify/features/connection/model/connection_status.dart';
+import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -12,6 +14,10 @@ class ActiveProxyDelayIndicator extends HookConsumerWidget with InfraLogger {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final connectionState = ref.watch(connectionNotifierProvider).valueOrNull;
+    if (connectionState != const Connected()) {
+      return const SizedBox();
+    }
     final t = ref.watch(translationsProvider).requireValue;
     final activeProxy = ref.watch(activeProxyNotifierProvider);
     final theme = Theme.of(context);

@@ -117,7 +117,7 @@ class IPCountryFlag extends HookConsumerWidget {
       child: Padding(
         padding: padding,
         child: (countryCode?.isEmpty ?? true)
-            ? Icon(FluentIcons.question_circle_20_regular, size: size)
+            ? Icon(Icons.public, size: size, color: Theme.of(context).colorScheme.outline)
             : SizedBox(
                 width: size,
                 height: size,

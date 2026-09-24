@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:hiddify/core/haptic/haptic_service.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
+import 'package:hiddify/core/preferences/preferences_provider.dart';
 import 'package:hiddify/core/utils/throttler.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
@@ -96,7 +97,18 @@ class ActiveProxyNotifier extends _$ActiveProxyNotifier with AppLogger {
     yield* _proxyRepo
         .watchActiveProxies()
         .map((event) => event.getOrElse((l) => List<OutboundGroup>.empty()))
-        .map((event) => event.firstOrNull?.items.first ?? OutboundInfo());
+        .map((event) => event.firstOrNull?.items.first ?? OutboundInfo())
+        .map((proxy) {
+          if (proxy.ipinfo.countryCode.isNotEmpty && proxy.tag.isNotEmpty) {
+            ref.read(sharedPreferencesProvider.future).then((prefs) async {
+              final activeProfile = await ref.read(activeProfileProvider.future);
+              if (activeProfile != null) {
+                await prefs.setString("proxy_country_${activeProfile.id}_${proxy.tag}", proxy.ipinfo.countryCode);
+              }
+            });
+          }
+          return proxy;
+        });
   }
 
   ProxyRepository get _proxyRepo => ref.read(proxyRepositoryProvider);
