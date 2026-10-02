@@ -75,9 +75,15 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
 
   void _startPeriodicPings() {
     _stopPeriodicPings();
-    unawaited(ref.read(proxyRepositoryProvider).urlTestActive().run());
 
-    _activePingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    Timer(const Duration(milliseconds: 2500), () {
+      final isConn = state.valueOrNull?.isConnected ?? false;
+      if (isConn) {
+        unawaited(ref.read(proxyRepositoryProvider).urlTestActive().run());
+      }
+    });
+
+    _activePingTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
       final isConn = state.valueOrNull?.isConnected ?? false;
       if (isConn) {
         unawaited(ref.read(proxyRepositoryProvider).urlTestActive().run());
@@ -86,17 +92,17 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       }
     });
 
-    Timer(const Duration(seconds: 3), () {
+    Timer(const Duration(seconds: 6), () {
       final isConn = state.valueOrNull?.isConnected ?? false;
       if (isConn) {
-        unawaited(ref.read(proxyRepositoryProvider).urlTest("").run());
+        unawaited(ref.read(proxyRepositoryProvider).urlTest("select").run());
       }
     });
 
     _allConfigsPingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       final isConn = state.valueOrNull?.isConnected ?? false;
       if (isConn) {
-        unawaited(ref.read(proxyRepositoryProvider).urlTest("").run());
+        unawaited(ref.read(proxyRepositoryProvider).urlTest("select").run());
       } else {
         _stopPeriodicPings();
       }

@@ -28,9 +28,23 @@ class ActiveProxyDelayIndicator extends HookConsumerWidget with InfraLogger {
       return const SizedBox(); // Avoid building widget if data is not available
     }
 
+    final connectedSince = useState<DateTime?>(null);
+    useEffect(() {
+      if (connectionState is Connected) {
+        connectedSince.value ??= DateTime.now();
+      } else {
+        connectedSince.value = null;
+      }
+      return null;
+    }, [connectionState]);
+
+    final isGracePeriod = connectedSince.value != null &&
+        DateTime.now().difference(connectedSince.value!).inSeconds < 8;
+
     final proxy = activeProxy.value!;
     final delay = proxy.urlTestDelay;
-    final timeout = delay > 65000;
+    final timeout = delay > 65000 && !isGracePeriod;
+    final showResult = (delay > 0 && delay <= 65000) || timeout;
 
     return Center(
       child: InkWell(
@@ -50,7 +64,7 @@ class ActiveProxyDelayIndicator extends HookConsumerWidget with InfraLogger {
             children: [
               const Icon(FluentIcons.wifi_1_24_regular),
               const Gap(8),
-              if (delay > 0)
+              if (showResult)
                 Text.rich(
                   semanticsLabel: timeout ? t.pages.proxies.delay.timeout : t.pages.proxies.delay.result(delay: delay),
                   TextSpan(
