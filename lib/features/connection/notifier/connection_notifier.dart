@@ -39,6 +39,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     listenSelf((previous, next) async {
       if (previous == next) return;
       if (next case AsyncData(value: final Connected _)) {
+        _connectedAt = DateTime.now();
         await ref.read(hapticServiceProvider.notifier).heavyImpact();
         _startPeriodicPings();
 
@@ -49,6 +50,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
           }
         }
       } else if (next case AsyncData(value: final Disconnected _) || AsyncData(value: final Disconnecting _) || AsyncError()) {
+        _connectedAt = null;
         _stopPeriodicPings();
       }
     });
@@ -72,11 +74,15 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
 
   Timer? _activePingTimer;
   Timer? _allConfigsPingTimer;
+  Timer? _graceTimer;
+  DateTime? _connectedAt;
+
+  bool get isGracePeriod => _connectedAt != null && DateTime.now().difference(_connectedAt!).inSeconds < 8;
 
   void _startPeriodicPings() {
     _stopPeriodicPings();
 
-    Timer(const Duration(milliseconds: 2500), () {
+    Timer(const Duration(milliseconds: 1500), () {
       final isConn = state.valueOrNull?.isConnected ?? false;
       if (isConn) {
         unawaited(ref.read(proxyRepositoryProvider).urlTestActive().run());
@@ -89,6 +95,13 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
         unawaited(ref.read(proxyRepositoryProvider).urlTestActive().run());
       } else {
         _stopPeriodicPings();
+      }
+    });
+
+    _graceTimer = Timer(const Duration(seconds: 8), () {
+      final isConn = state.valueOrNull?.isConnected ?? false;
+      if (isConn) {
+        ref.invalidate(activeProxyNotifierProvider);
       }
     });
 
@@ -114,6 +127,8 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     _activePingTimer = null;
     _allConfigsPingTimer?.cancel();
     _allConfigsPingTimer = null;
+    _graceTimer?.cancel();
+    _graceTimer = null;
   }
 
   ConnectionRepository get _connectionRepo => ref.read(connectionRepositoryProvider);

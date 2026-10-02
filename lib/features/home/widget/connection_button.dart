@@ -17,7 +17,6 @@ import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
 import 'package:hiddify/gen/assets.gen.dart';
 import 'package:hiddify/singbox/model/singbox_config_enum.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 // TODO: rewrite
@@ -31,18 +30,7 @@ class ConnectionButton extends HookConsumerWidget {
     final activeProxy = ref.watch(activeProxyNotifierProvider);
     final delay = activeProxy.valueOrNull?.urlTestDelay ?? 0;
 
-    final connectedSince = useState<DateTime?>(null);
-    useEffect(() {
-      if (connectionStatus.valueOrNull is Connected) {
-        connectedSince.value ??= DateTime.now();
-      } else {
-        connectedSince.value = null;
-      }
-      return null;
-    }, [connectionStatus.valueOrNull]);
-
-    final isGracePeriod = connectedSince.value != null &&
-        DateTime.now().difference(connectedSince.value!).inSeconds < 8;
+    final isGracePeriod = ref.watch(connectionNotifierProvider.notifier).isGracePeriod;
     final isConnectingState = delay <= 0 || (delay >= 65000 && isGracePeriod);
 
     final requiresReconnect = ref.watch(configOptionNotifierProvider).valueOrNull;

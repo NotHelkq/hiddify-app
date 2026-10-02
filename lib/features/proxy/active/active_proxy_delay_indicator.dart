@@ -9,7 +9,6 @@ import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class ActiveProxyDelayIndicator extends HookConsumerWidget with InfraLogger {
@@ -29,18 +28,7 @@ class ActiveProxyDelayIndicator extends HookConsumerWidget with InfraLogger {
       return const SizedBox(); // Avoid building widget if data is not available
     }
 
-    final connectedSince = useState<DateTime?>(null);
-    useEffect(() {
-      if (connectionState is Connected) {
-        connectedSince.value ??= DateTime.now();
-      } else {
-        connectedSince.value = null;
-      }
-      return null;
-    }, [connectionState]);
-
-    final isGracePeriod = connectedSince.value != null &&
-        DateTime.now().difference(connectedSince.value!).inSeconds < 8;
+    final isGracePeriod = ref.watch(connectionNotifierProvider.notifier).isGracePeriod;
 
     final proxy = activeProxy.value!;
     final delay = proxy.urlTestDelay;
