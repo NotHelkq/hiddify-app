@@ -50,7 +50,11 @@ enum ProxyType {
 
 String formatProxyType(String type, String tag) {
   final lowerTag = tag.toLowerCase();
-  final isOlcRTC = lowerTag.contains('olcrtc') || lowerTag.contains('olconnect');
+  final isOlcRTC = lowerTag.contains('olcrtc') ||
+      lowerTag.contains('olconnect') ||
+      lowerTag.contains('wbstream') ||
+      lowerTag.contains('telemost') ||
+      lowerTag.contains('jitsi');
 
   return type.split('→').map((part) {
     final trimmed = part.trim();
