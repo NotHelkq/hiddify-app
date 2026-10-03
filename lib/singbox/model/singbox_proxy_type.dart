@@ -20,6 +20,9 @@ enum ProxyType {
   hysteria2("Hysteria2"),
   mieru("Mieru"),
   olcrtc("olcRTC"),
+  dnstt("DNSTT"),
+  anytls("AnyTLS"),
+  snell("Snell"),
 
   selector("Selector"),
   urltest("URLTest"),

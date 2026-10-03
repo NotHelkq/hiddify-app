@@ -402,6 +402,10 @@ class ProfileParser {
         'mieru' => fragment ?? ProxyType.mieru.label,
         'warp' => fragment ?? ProxyType.warp.label,
         'olcrtc' || 'olconnect' => fragment ?? 'olcRTC',
+        'naive' || 'naive+https' || 'naive+http' => fragment ?? ProxyType.naive.label,
+        'dnstt' => fragment ?? ProxyType.dnstt.label,
+        'anytls' => fragment ?? ProxyType.anytls.label,
+        'snell' => fragment ?? ProxyType.snell.label,
         _ => null,
       };
     }
