@@ -160,23 +160,27 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     }
 
     fun updateStatus(previous:SystemInfo,status: SystemInfo) {
-        val uplink=status.uplink_total - previous.uplink_total
-        val downlink=status.downlink_total - previous.downlink_total
-        val speedText = "${Libbox.formatBytes(uplink)}/s ↑   ${Libbox.formatBytes(downlink)}/s ↓"
-        val content = if (status.current_outbound.isNotBlank()) {
-            "$speedText\n${status.current_outbound}"
-        } else {
-            speedText
+        runCatching {
+            val uplink = (status.uplink_total - previous.uplink_total).coerceAtLeast(0)
+            val downlink = (status.downlink_total - previous.downlink_total).coerceAtLeast(0)
+            val speedText = "${Libbox.formatBytes(uplink)}/s ↑   ${Libbox.formatBytes(downlink)}/s ↓"
+            val content = if (status.current_outbound.isNotBlank()) {
+                "$speedText\n${status.current_outbound}"
+            } else {
+                speedText
+            }
+            val title = status.current_profile.takeIf { it.isNotBlank() } ?: "Hiddify"
+            Application.notificationManager.notify(
+                    notificationId,
+                    notificationBuilder
+                        .setContentTitle(title)
+                        .setContentText(content)
+                        .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+                        .build()
+            )
+        }.onFailure {
+            Log.w("ServiceNotification", "Failed to update notification: ${it.message}")
         }
-        val title = status.current_profile.takeIf { it.isNotBlank() } ?: "Hiddify"
-        Application.notificationManager.notify(
-                notificationId,
-                notificationBuilder
-                    .setContentTitle(title)
-                    .setContentText(content)
-                    .setStyle(NotificationCompat.BigTextStyle().bigText(content))
-                    .build()
-        )
     }
 
     override fun onReceive(context: Context, intent: Intent) {
