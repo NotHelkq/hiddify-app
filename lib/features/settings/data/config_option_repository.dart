@@ -137,13 +137,13 @@ abstract class ConfigOptions {
     mapTo: (value) => value.name,
   );
 
-  static final mtu = PreferencesNotifier.create<int, int>("mtu", 9000);
+  static final mtu = PreferencesNotifier.create<int, int>("mtu", 1400);
 
   static final strictRoute = PreferencesNotifier.create<bool, bool>("strict-route", true);
 
   static final connectionTestUrl = PreferencesNotifier.create<String, String>(
     "connection-test-url",
-    "http://captive.apple.com/hotspot-detect.html",
+    "http://www.gstatic.com/generate_204",
     possibleValues: List.of([
       "http://connectivitycheck.gstatic.com/generate_204",
       "http://www.gstatic.com/generate_204",
@@ -466,6 +466,13 @@ abstract class ConfigOptions {
 
     final mode = ref.watch(serviceMode);
     // final reg = ref.watch(Preferences.region.notifier).raw();
+    final rawMtu = ref.watch(mtu);
+    final effectiveMtu = PlatformUtils.isMobile && (rawMtu <= 0 || rawMtu > 1500) ? 1400 : rawMtu;
+    final rawTestUrl = ref.watch(connectionTestUrl);
+    final effectiveConnectionTestUrl = (rawTestUrl.contains("cp.cloudflare.com") || rawTestUrl.contains("captive.apple.com"))
+        ? "http://www.gstatic.com/generate_204"
+        : rawTestUrl;
+
     return SingboxConfigOption(
       region: ref.watch(region).name,
       balancerStrategy: ref.watch(balancerStrategy),
@@ -488,9 +495,9 @@ abstract class ConfigOptions {
       enableDirectPort: ref.watch(enableDirectPort),
       enableRedirectPort: ref.watch(enableRedirectPort),
       tunImplementation: ref.watch(tunImplementation),
-      mtu: ref.watch(mtu),
+      mtu: effectiveMtu,
       strictRoute: ref.watch(strictRoute),
-      connectionTestUrl: ref.watch(connectionTestUrl),
+      connectionTestUrl: effectiveConnectionTestUrl,
       urlTestInterval: ref.watch(urlTestInterval),
       enableClashApi: ref.watch(enableClashApi),
       clashApiPort: ref.watch(clashApiPort),

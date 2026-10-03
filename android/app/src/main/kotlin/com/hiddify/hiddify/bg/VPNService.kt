@@ -98,7 +98,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
 
         val builder = Builder()
             .setSession("hiddify")
-            .setMtu(options.mtu)
+            .setMtu(if (options.mtu <= 0 || options.mtu > 1500) 1400 else options.mtu)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(false)
