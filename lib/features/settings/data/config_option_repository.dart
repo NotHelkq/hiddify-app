@@ -143,7 +143,7 @@ abstract class ConfigOptions {
 
   static final connectionTestUrl = PreferencesNotifier.create<String, String>(
     "connection-test-url",
-    "http://www.gstatic.com/generate_204",
+    "http://cp.cloudflare.com",
     possibleValues: List.of([
       "http://connectivitycheck.gstatic.com/generate_204",
       "http://www.gstatic.com/generate_204",
@@ -469,9 +469,7 @@ abstract class ConfigOptions {
     final rawMtu = ref.watch(mtu);
     final effectiveMtu = PlatformUtils.isMobile && (rawMtu <= 0 || rawMtu > 1500) ? 1400 : rawMtu;
     final rawTestUrl = ref.watch(connectionTestUrl);
-    final effectiveConnectionTestUrl = (rawTestUrl.contains("cp.cloudflare.com") || rawTestUrl.contains("captive.apple.com"))
-        ? "http://www.gstatic.com/generate_204"
-        : rawTestUrl;
+    final effectiveConnectionTestUrl = rawTestUrl;
 
     return SingboxConfigOption(
       region: ref.watch(region).name,
@@ -535,7 +533,7 @@ abstract class ConfigOptions {
         profile: SingboxExtraSecurityProfileOption(id: ref.watch(extraSecurityProfileId)),
       ),
       unblocker: SingboxUnblockerOption(
-        mode: ref.watch(extraSecurityMode),
+        mode: ref.watch(unblockerMode),
         warp: SingboxUnblockerWarpOption(
           licenseKey: ref.watch(unblockerWarpLicenseKey),
           cleanIp: ref.watch(unblockerWarpCleanIp),
