@@ -120,9 +120,7 @@ class HiddifyCoreService with InfraLogger {
       loggy.debug("changing options");
       // latestOptions = options;
       try {
-        final optionsMap = Map<String, dynamic>.from(options.toJson());
-        optionsMap["enable-comss-dns"] = ref.read(ConfigOptions.enableComssDns);
-        final settingsJson = jsonEncode(optionsMap);
+        final settingsJson = jsonEncode(options.toJson());
         final res = await core.fgClient.changeHiddifySettings(
           ChangeHiddifySettingsRequest(hiddifySettingsJson: settingsJson),
         );
