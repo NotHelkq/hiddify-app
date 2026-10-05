@@ -120,12 +120,15 @@ class HiddifyCoreService with InfraLogger {
       loggy.debug("changing options");
       // latestOptions = options;
       try {
+        final optionsMap = Map<String, dynamic>.from(options.toJson());
+        optionsMap["enable-comss-dns"] = ref.read(ConfigOptions.enableComssDns);
+        final settingsJson = jsonEncode(optionsMap);
         final res = await core.fgClient.changeHiddifySettings(
-          ChangeHiddifySettingsRequest(hiddifySettingsJson: jsonEncode(options.toJson())),
+          ChangeHiddifySettingsRequest(hiddifySettingsJson: settingsJson),
         );
         if (res.messageType != MessageType.EMPTY) return left("${res.messageType} ${res.message}");
         await core.bgClient.changeHiddifySettings(
-          ChangeHiddifySettingsRequest(hiddifySettingsJson: jsonEncode(options.toJson())),
+          ChangeHiddifySettingsRequest(hiddifySettingsJson: settingsJson),
         );
       } on GrpcError catch (e) {
         if (e.code == StatusCode.unavailable) {

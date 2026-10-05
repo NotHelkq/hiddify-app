@@ -186,6 +186,8 @@ abstract class ConfigOptions {
 
   static final independentDnsCache = PreferencesNotifier.create<bool, bool>("independent-dns-cache", true);
 
+  static final enableComssDns = PreferencesNotifier.create<bool, bool>("enable-comss-dns", false);
+
   static final enableTlsFragment = PreferencesNotifier.create<bool, bool>("enable-tls-fragment", false);
 
   static final fragmentPackets = PreferencesNotifier.create<String, String>(
@@ -381,6 +383,7 @@ abstract class ConfigOptions {
     "allow-connection-from-lan": allowConnectionFromLan,
     "lan-sharing-password": lanSharingPassword,
     // "enable-dns-routing": enableDnsRouting,
+    "enable-comss-dns": enableComssDns,
 
     // mux
     // "mux.enable": enableMux,

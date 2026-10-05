@@ -41,6 +41,15 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
         }
       }
     }, fireImmediately: true);
+
+    ref.listen(ConfigOptions.enableComssDns, (previous, next) async {
+      if (!serviceRunning || previous == null) return;
+      if (next != previous) {
+        final activeProfile = await ref.read(activeProfileProvider.future);
+        await ref.read(connectionNotifierProvider.notifier).reconnect(activeProfile);
+        state = const AsyncData(false);
+      }
+    });
     return false;
   }
 

@@ -34,6 +34,21 @@ class DnsOptionsPage extends HookConsumerWidget {
             value: ref.watch(ConfigOptions.enableFakeDns),
             onChanged: ref.read(ConfigOptions.enableFakeDns.notifier).update,
           ),
+          SwitchListTile.adaptive(
+            title: Text(
+              Localizations.localeOf(context).languageCode == 'ru'
+                  ? "Обход Gemini (COMSS DNS)"
+                  : "Gemini Unblock (COMSS DNS)",
+            ),
+            subtitle: Text(
+              Localizations.localeOf(context).languageCode == 'ru'
+                  ? "Маршрутизировать сервисы Gemini через dns.comss.one"
+                  : "Route Gemini services through dns.comss.one",
+            ),
+            secondary: const Icon(Icons.auto_awesome_rounded),
+            value: ref.watch(ConfigOptions.enableComssDns),
+            onChanged: ref.read(ConfigOptions.enableComssDns.notifier).update,
+          ),
           ValuePreferenceWidget(
             title: t.pages.settings.dns.directDns,
             icon: Icons.public_rounded,
