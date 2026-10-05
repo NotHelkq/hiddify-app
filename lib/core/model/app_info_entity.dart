@@ -19,7 +19,7 @@ class AppInfoEntity with _$AppInfoEntity {
 
   String get userAgent => "HiddifyNext/$version ($operatingSystem) like ClashMeta v2ray sing-box";
 
-  String get presentVersion => "v$version [Gemini Fixed]";
+  String get presentVersion => "v$version [Gemini Full Fix]";
 
   /// formats app info for sharing
   String format() =>
