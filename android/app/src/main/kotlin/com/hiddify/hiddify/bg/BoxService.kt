@@ -124,8 +124,42 @@ class BoxService(
             }
         }
     }
-    
 
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    private fun acquireWakeLock() {
+        try {
+            if (wakeLock == null) {
+                wakeLock = Application.powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "hiddify:vpn"
+                ).apply {
+                    setReferenceCounted(false)
+                }
+            }
+            wakeLock?.let {
+                if (!it.isHeld) {
+                    it.acquire()
+                    Log.d(TAG, "WakeLock acquired")
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to acquire wake lock", t)
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            wakeLock?.let {
+                if (it.isHeld) {
+                    it.release()
+                    Log.d(TAG, "WakeLock released")
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to release wake lock", t)
+        }
+    }
 
     private var activeProfileName = ""
     private suspend fun startService() {
@@ -173,6 +207,7 @@ class BoxService(
             }
             Application.log(TAG, "Mobile.setup SUCCESS, status=Started")
             status.postValue(Status.Started)
+            acquireWakeLock()
 
             if (Settings.startCoreAfterStartingService){
                 Mobile.start("","")
@@ -284,6 +319,7 @@ class BoxService(
 //                Seq.destroyRef(refnum)
 //            }
 //            commandServer = null
+            releaseWakeLock()
             Settings.startedByUser = false
             withContext(Dispatchers.Main) {
                 Mobile.close(4L)
@@ -295,6 +331,7 @@ class BoxService(
     }
 
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
+        releaseWakeLock()
         Application.log(TAG, "stopAndAlert: type=$type, message=$message")
         Settings.startedByUser = false
         withContext(Dispatchers.Main) {
@@ -361,6 +398,7 @@ class BoxService(
     }
 
     fun onDestroy() {
+        releaseWakeLock()
         binder.close()
     }
 
