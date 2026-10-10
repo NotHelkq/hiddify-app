@@ -111,53 +111,21 @@ class BoxService(
     private var receiverRegistered = false
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                Action.SERVICE_CLOSE -> {
-                    stopService()
-                }
+            try {
+                when (intent.action) {
+                    Action.SERVICE_CLOSE -> {
+                        stopService()
+                    }
 
-                PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        serviceUpdateIdleMode()
+                    PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            serviceUpdateIdleMode()
+                        }
                     }
                 }
+            } catch (t: Throwable) {
+                Log.e(TAG, "Error handling broadcast in BoxService receiver", t)
             }
-        }
-    }
-
-    private var wakeLock: PowerManager.WakeLock? = null
-
-    private fun acquireWakeLock() {
-        try {
-            if (wakeLock == null) {
-                wakeLock = Application.powerManager.newWakeLock(
-                    PowerManager.PARTIAL_WAKE_LOCK,
-                    "hiddify:vpn"
-                ).apply {
-                    setReferenceCounted(false)
-                }
-            }
-            wakeLock?.let {
-                if (!it.isHeld) {
-                    it.acquire()
-                    Log.d(TAG, "WakeLock acquired")
-                }
-            }
-        } catch (t: Throwable) {
-            Log.w(TAG, "Failed to acquire wake lock", t)
-        }
-    }
-
-    private fun releaseWakeLock() {
-        try {
-            wakeLock?.let {
-                if (it.isHeld) {
-                    it.release()
-                    Log.d(TAG, "WakeLock released")
-                }
-            }
-        } catch (t: Throwable) {
-            Log.w(TAG, "Failed to release wake lock", t)
         }
     }
 
@@ -207,7 +175,6 @@ class BoxService(
             }
             Application.log(TAG, "Mobile.setup SUCCESS, status=Started")
             status.postValue(Status.Started)
-            acquireWakeLock()
 
             if (Settings.startCoreAfterStartingService){
                 Mobile.start("","")
@@ -277,12 +244,18 @@ class BoxService(
 
     @RequiresApi(Build.VERSION_CODES.M)
     private fun serviceUpdateIdleMode() {
-        if (Application.powerManager.isDeviceIdleMode) {
-//            boxService?.pause()
-            //Mobile.pause()
-        } else {
-            Mobile.wake()
-//            boxService?.wake()
+        try {
+            if (Application.powerManager.isDeviceIdleMode) {
+                // Device entered idle mode
+            } else {
+                try {
+                    Mobile.wake()
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Failed to call Mobile.wake()", t)
+                }
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error in serviceUpdateIdleMode", t)
         }
     }
 
@@ -319,7 +292,6 @@ class BoxService(
 //                Seq.destroyRef(refnum)
 //            }
 //            commandServer = null
-            releaseWakeLock()
             Settings.startedByUser = false
             withContext(Dispatchers.Main) {
                 Mobile.close(4L)
@@ -331,7 +303,6 @@ class BoxService(
     }
 
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
-        releaseWakeLock()
         Application.log(TAG, "stopAndAlert: type=$type, message=$message")
         Settings.startedByUser = false
         withContext(Dispatchers.Main) {
@@ -398,7 +369,6 @@ class BoxService(
     }
 
     fun onDestroy() {
-        releaseWakeLock()
         binder.close()
     }
 

@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
 import com.hiddify.core.api.v2.config.Protocol
 import com.hiddify.core.api.v2.hcommon.Empty
@@ -152,11 +153,21 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     }
 
     private fun registerReceiver() {
-        service.registerReceiver(this, IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_ON)
-            addAction(Intent.ACTION_SCREEN_OFF)
-        })
-        receiverRegistered = true
+        if (receiverRegistered) return
+        try {
+            ContextCompat.registerReceiver(
+                service,
+                this,
+                IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_ON)
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                },
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            receiverRegistered = true
+        } catch (t: Throwable) {
+            Log.w("ServiceNotification", "Failed to register screen receiver", t)
+        }
     }
 
     fun updateStatus(previous:SystemInfo,status: SystemInfo) {
@@ -184,22 +195,34 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
-            Intent.ACTION_SCREEN_ON -> {
-                startListenSystemInfo()
-            }
+        try {
+            when (intent.action) {
+                Intent.ACTION_SCREEN_ON -> {
+                    startListenSystemInfo()
+                }
 
-            Intent.ACTION_SCREEN_OFF -> {
-                stopListenSystemInfo()
+                Intent.ACTION_SCREEN_OFF -> {
+                    stopListenSystemInfo()
+                }
             }
+        } catch (t: Throwable) {
+            Log.w("ServiceNotification", "Failed to handle screen state change", t)
         }
     }
 
     fun close() {
         stopListenSystemInfo()
-        ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        try {
+            ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        } catch (t: Throwable) {
+            Log.w("ServiceNotification", "Failed to stop foreground", t)
+        }
         if (receiverRegistered) {
-            service.unregisterReceiver(this)
+            try {
+                service.unregisterReceiver(this)
+            } catch (t: Throwable) {
+                Log.w("ServiceNotification", "Failed to unregister receiver", t)
+            }
             receiverRegistered = false
         }
     }
